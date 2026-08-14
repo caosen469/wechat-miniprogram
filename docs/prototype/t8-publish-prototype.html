@@ -1,0 +1,743 @@
+<!doctype html>
+<!-- PROTOTYPE — T8 低保真原型（throwaway）· 回答：打卡发布页长什么样、怎么用
+     三个变体（A 分步向导 / B 单页长表单 / C 拍摄优先）经底部悬浮条 / 方向键 / ?variant=A|B|C 切换。
+     承接 T5 变体 C 视觉基调（同 token）。详见 GitHub issue #9。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>打卡发布页原型</title>
+<style>
+  /* ===== 主题 token（与 T5 原型一致）===== */
+  :root {
+    --ground: #ececea; --panel: #ffffff; --panel-2: #f4f4f2;
+    --ink: #1c1c1e; --ink-2: #6e6e73; --ink-3: #a1a1a6;
+    --line: #d8d8d5; --line-strong: #b9b9b5;
+    --ph: #e3e3e0; --ph-ink: #9a9a96;
+    --good: #1e8e5a; --mid: #b97f14; --bad: #cf4436;
+    --couple: #c05c96; --me: #7b7bf0;
+    --bezel: #2a2a2c; --accent: #0f6b4f;
+    --toast-bg: rgba(28,28,30,.92); --toast-ink: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #191919; --panel: #232325; --panel-2: #2c2c2e;
+      --ink: #ececec; --ink-2: #9c9ca1; --ink-3: #6d6d72;
+      --line: #3a3a3d; --line-strong: #4c4c50;
+      --ph: #333336; --ph-ink: #78787d;
+      --good: #35b478; --mid: #d19a3a; --bad: #e06557;
+      --couple: #d47ab0; --accent: #4cc49a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #191919; --panel: #232325; --panel-2: #2c2c2e;
+    --ink: #ececec; --ink-2: #9c9ca1; --ink-3: #6d6d72;
+    --line: #3a3a3d; --line-strong: #4c4c50;
+    --ph: #333336; --ph-ink: #78787d;
+    --good: #35b478; --mid: #d19a3a; --bad: #e06557;
+    --couple: #d47ab0; --accent: #4cc49a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 28px 16px 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== 页面级说明 ===== */
+  .brief { max-width: 560px; text-align: center; margin-bottom: 22px; }
+  .brief h1 { font-size: 17px; font-weight: 600; letter-spacing: .02em; }
+  .brief p { margin-top: 6px; font-size: 12.5px; color: var(--ink-2); line-height: 1.7; }
+  .brief .q { display: inline-block; margin-top: 2px; padding: 2px 10px; border: 1px solid var(--line-strong); border-radius: 99px; font-size: 11px; color: var(--ink-2); }
+  .diff-note { margin: 0 auto 14px; font-size: 12px; color: var(--ink-2); max-width: 560px; text-align: center; line-height: 1.7; min-height: 20px; }
+  .diff-note b { color: var(--ink); font-weight: 600; }
+
+  /* ===== 手机框 ===== */
+  .phone {
+    width: 390px; max-width: 100%;
+    background: var(--panel);
+    border: 8px solid var(--bezel);
+    border-radius: 44px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,.25);
+    position: relative;
+    height: 760px;
+    display: flex; flex-direction: column;
+  }
+  @media (max-width: 440px) { .phone { height: 640px; } .brief, .diff-note { display: none; } }
+
+  .statusbar {
+    height: 40px; flex: none;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 18px; font-size: 12px; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 屏幕区（滚动） */
+  .screen-wrap { flex: 1; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+  .screen { flex: 1; overflow-y: auto; display: none; flex-direction: column; }
+  .screen.on { display: flex; }
+
+  /* 顶部导航 */
+  .navbar { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 6px 16px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .navbar .t { font-size: 16px; font-weight: 600; }
+  .navbar .x { font-size: 13px; color: var(--ink-2); padding: 4px 8px; }
+
+  /* 步骤进度点（变体 A） */
+  .dots { flex: none; display: flex; gap: 6px; justify-content: center; padding: 10px 0 4px; }
+  .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
+  .dots i.on { background: var(--accent); }
+  .dots .dlabel { font-size: 11px; color: var(--ink-2); margin-left: 8px; }
+
+  /* 内容区 */
+  .body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .q-title { font-size: 20px; font-weight: 700; letter-spacing: .01em; }
+  .q-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; line-height: 1.6; }
+
+  .sect { display: flex; flex-direction: column; gap: 8px; }
+  .sect-h { font-size: 11px; font-weight: 600; color: var(--ink-3); letter-spacing: .12em; }
+  .sect-h em { font-style: normal; font-weight: 400; letter-spacing: 0; margin-left: 6px; color: var(--ink-3); }
+
+  /* 卡片与行 */
+  .card { background: var(--panel-2); border-radius: 14px; padding: 12px 14px; }
+  .rowline { display: flex; align-items: center; gap: 10px; padding: 12px 2px; border-bottom: 1px solid var(--line); }
+  .rowline:last-child { border-bottom: none; }
+  .rowline .lbl { font-size: 14px; }
+  .rowline .grow { flex: 1; }
+
+  /* 徽章 */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge.good { color: var(--good); background: color-mix(in srgb, var(--good) 12%, transparent); }
+  .badge.mid  { color: var(--mid);  background: color-mix(in srgb, var(--mid) 12%, transparent); }
+  .badge.bad  { color: var(--bad);  background: color-mix(in srgb, var(--bad) 12%, transparent); }
+  .badge.dim  { color: var(--ink-2); background: var(--panel-2); }
+  .badge.pair { color: var(--couple); background: color-mix(in srgb, var(--couple) 12%, transparent); }
+
+  /* 按钮 */
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--accent); color: #fff; border: none; border-radius: 12px;
+    font-size: 15px; font-weight: 600; padding: 13px 16px; cursor: pointer; width: 100%;
+  }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line-strong); }
+  .btn.sm { width: auto; font-size: 13px; padding: 8px 14px; border-radius: 10px; }
+  .btn.rec { background: var(--bad); }
+  .btn[disabled] { opacity: .4; cursor: default; }
+
+  /* 底部操作条 */
+  .footbar { flex: none; display: flex; gap: 10px; padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--panel); }
+
+  /* 分段控制 */
+  .seg { display: flex; background: var(--panel-2); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button {
+    flex: 1; border: none; background: transparent; color: var(--ink-2);
+    font-size: 13px; padding: 7px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  }
+  .seg button.on { background: var(--panel); color: var(--ink); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+
+  /* chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1.5px solid var(--line-strong); background: transparent; color: var(--ink);
+    border-radius: 99px; padding: 7px 14px; font-size: 13px; cursor: pointer;
+  }
+  .chip.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); font-weight: 600; }
+
+  /* 媒体九宫格 */
+  .grid9 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .tile {
+    aspect-ratio: 1; border-radius: 10px; background: var(--ph); color: var(--ph-ink);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font-size: 11px; cursor: pointer; position: relative; border: none;
+  }
+  .tile b { font-size: 15px; font-weight: 600; }
+  .tile .cover-mark { position: absolute; top: 6px; left: 6px; font-size: 10px; background: rgba(0,0,0,.45); color: #fff; padding: 1px 6px; border-radius: 99px; }
+  .tile .del { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,.5); color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+  .tile.video { aspect-ratio: 4/3; grid-column: 1 / -1; }
+  .hint { font-size: 11.5px; color: var(--ink-3); line-height: 1.6; }
+
+  /* 星级 */
+  .stars { display: flex; gap: 6px; align-items: center; }
+  .stars button { border: none; background: none; font-size: 34px; line-height: 1; color: var(--line-strong); cursor: pointer; padding: 0 2px; transition: color .1s, transform .1s; }
+  .stars button.on { color: var(--mid); }
+  .stars.small button { font-size: 20px; }
+  .stars-huge button { font-size: 46px; }
+
+  /* 吐槽输入 */
+  textarea.tt {
+    width: 100%; min-height: 96px; resize: none; border: 1.5px solid var(--line);
+    border-radius: 12px; background: var(--panel); color: var(--ink);
+    font-size: 14px; line-height: 1.7; padding: 10px 12px; font-family: inherit;
+  }
+  textarea.tt:focus { outline: none; border-color: var(--accent); }
+  .count { text-align: right; font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+  /* 语音条 */
+  .vbar { display: flex; align-items: center; gap: 10px; background: var(--panel-2); border-radius: 12px; padding: 10px 12px; }
+  .vbar .play {
+    width: 30px; height: 30px; border-radius: 50%; flex: none;
+    background: var(--accent); color: #fff; font-size: 12px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .vbar .wave { flex: 1; display: flex; align-items: center; gap: 2px; height: 22px; }
+  .vbar .wave i { flex: 1; background: var(--ink-3); border-radius: 2px; min-height: 3px; }
+  .vbar .dur { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .vbar .x { font-size: 13px; color: var(--ink-3); padding: 4px 6px; cursor: pointer; }
+  .rec-live { display: flex; align-items: center; gap: 10px; color: var(--bad); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .rec-live .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+
+  /* 地点卡 */
+  .place-card { display: flex; align-items: center; gap: 10px; background: var(--panel-2); border-radius: 14px; padding: 12px 14px; cursor: pointer; border: 1.5px dashed var(--line-strong); }
+  .place-card.set { border-style: solid; border-color: var(--accent); }
+  .place-card .ic { font-size: 20px; }
+  .place-card .nm { font-size: 15px; font-weight: 600; }
+  .place-card .meta { font-size: 11.5px; color: var(--ink-2); margin-top: 2px; }
+
+  /* 底部 sheet（选点） */
+  .sheet-mask { position: absolute; inset: 0; background: rgba(0,0,0,.4); display: none; z-index: 20; }
+  .sheet-mask.on { display: block; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: var(--panel); border-radius: 20px 20px 0 0;
+    padding: 8px 16px calc(18px + env(safe-area-inset-bottom));
+    max-height: 82%; overflow-y: auto;
+  }
+  .sheet .grip { width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 4px auto 12px; }
+  .sheet .sh { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+  .search-in {
+    width: 100%; border: none; background: var(--panel-2); border-radius: 10px;
+    font-size: 14px; padding: 10px 12px; color: var(--ink); font-family: inherit;
+  }
+  .search-in:focus { outline: 1.5px solid var(--accent); }
+  .poi { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .poi:last-child { border-bottom: none; }
+  .poi .nm { font-size: 14.5px; }
+  .poi .meta { font-size: 11.5px; color: var(--ink-2); margin-top: 2px; }
+  .poi .grow { flex: 1; }
+
+  /* 预览卡（变体 A 第 5 步） */
+  .preview { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .preview .cover { height: 150px; background: var(--ph); color: var(--ph-ink); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; gap: 4px; }
+  .preview .pv-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .preview .pv-place { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+  .preview .pv-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 11.5px; color: var(--ink-2); }
+  .preview .pv-text { font-size: 13.5px; line-height: 1.7; }
+
+  /* toast */
+  .toast {
+    position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(8px);
+    background: var(--toast-bg); color: var(--toast-ink); font-size: 12.5px; line-height: 1.6;
+    border-radius: 12px; padding: 10px 16px; max-width: 82%;
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 40;
+    font-variant-numeric: tabular-nums;
+  }
+  .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ===== 记录状态条（原型调试：实时显示当前拼出的回忆记录） ===== */
+  .state-strip {
+    position: fixed; left: 14px; bottom: 14px; z-index: 60;
+    background: var(--bezel); color: #d8d8d5; border-radius: 12px;
+    padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px; line-height: 1.7; max-width: 340px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  }
+  .state-strip .h { color: #9a9a96; font-weight: 600; margin-bottom: 2px; }
+  @media (max-width: 760px) { .state-strip { display: none; } }
+
+  /* ===== 变体切换悬浮条 ===== */
+  .switcher {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 60;
+    display: flex; align-items: center; gap: 4px;
+    background: var(--bezel); border-radius: 99px; padding: 6px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .switcher button {
+    border: none; background: rgba(255,255,255,.12); color: #fff; font-size: 15px;
+    width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+  }
+  .switcher button:hover { background: rgba(255,255,255,.22); }
+  .switcher .lab { color: #fff; font-size: 12.5px; font-weight: 600; padding: 0 12px; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="brief">
+  <h1>打卡发布页 · 低保真原型</h1>
+  <p>三个结构迥异的变体：同一批决策内容（选地点 → 配媒体 → 打分吐槽 → 元数据），不同的信息组织与主操作。左下「记录状态」面板实时显示当前拼出的回忆记录。</p>
+  <span class="q">T8 · GitHub issue #9 · throwaway</span>
+</div>
+<div class="diff-note" id="diffNote"></div>
+
+<div class="phone">
+  <div class="statusbar"><span>21:36</span><span>●●● 📶 🔋</span></div>
+  <div class="screen-wrap">
+    <div class="screen" data-v="a" id="scrA"></div>
+    <div class="screen" data-v="b" id="scrB"></div>
+    <div class="screen" data-v="c" id="scrC"></div>
+  </div>
+  <div class="sheet-mask" id="sheetMask"><div class="sheet" id="sheet"></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<div class="state-strip" id="stateStrip"></div>
+<div class="switcher">
+  <button data-act="prev" aria-label="上一个变体">←</button>
+  <span class="lab" id="vLabel"></span>
+  <button data-act="next" aria-label="下一个变体">→</button>
+</div>
+
+<script>
+/* ============ 常量与模拟数据 ============ */
+const VARIANTS = [
+  { k:'A', name:'分步向导',  note:'<b>A · 分步向导</b> — 一屏一问（地点 → 媒体 → 打分吐槽 → 同行可见 → 预览），进度点引导，大主按钮' },
+  { k:'B', name:'单页长表单', note:'<b>B · 单页长表单</b> — 全部决策一屏滚动，分区标签，底部吸附「发布」' },
+  { k:'C', name:'拍摄优先',  note:'<b>C · 拍摄优先</b> — 九宫格媒体打头（朋友圈式），地点/星级内联轻选，元数据折叠，底栏快捷可见范围 + 发布' },
+];
+const POIS = [
+  { name:'西湖 · 断桥残雪',   type:'景点', dist:'400m',  known:true,  visits:3, avg:4.7 },
+  { name:'外婆家(湖滨银泰店)', type:'餐厅', dist:'850m',  known:true,  visits:2, avg:4.0 },
+  { name:'楼外楼(孤山路)',     type:'餐厅', dist:'1.2km', known:true,  visits:1, avg:2.5 },
+  { name:'灵隐寺',             type:'景点', dist:'5.6km', known:false },
+  { name:'亚朵酒店(西湖店)',   type:'住宿', dist:'2.1km', known:false },
+  { name:'绿茶餐厅(龙井路)',   type:'餐厅', dist:'3.0km', known:false },
+];
+const TYPES = ['餐厅','景点','住宿','其他'];
+const FAMILY = ['她','妈妈','爸爸','妹妹'];
+const VIS = [
+  { k:'家庭圈', cls:'dim'  },
+  { k:'仅我俩', cls:'pair' },
+  { k:'仅自己', cls:'dim'  },
+];
+const TIMES = [
+  { label:'刚刚 · 8月14日 21:36', sub:'默认当前时间，点击可改' },
+  { label:'今天 12:30',           sub:'修改为今天稍早' },
+  { label:'8月10日 15:00',        sub:'补记 4 天前', bj:true },
+];
+const GRADE = r => r>=4 ? {n:'宝藏', c:'good'} : r===3 ? {n:'还行', c:'mid'} : r>0 ? {n:'踩雷', c:'bad'} : {n:'未评分', c:'dim'};
+
+const newRec = () => ({
+  step:0, place:null, media:{ mode:'photo', photos:[], video:false },
+  rating:0, text:'', voice:0, recording:false, recT:0,
+  participants:[], vis:0, timeIdx:0, more:false,
+});
+
+/* ============ 状态 ============ */
+let cur = 'a';
+const st = { a:newRec(), b:newRec(), c:newRec() };
+let sheetMode = null, sheetPoi = null, sheetType = '餐厅', recTimer = null;
+
+/* ============ 工具 ============ */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const waves = () => Array.from({length:26}, () =>
+  3 + Math.round(Math.abs(Math.sin(Math.random()*9)) * 19));
+const waveHtml = () => waves().map(h=>`<i style="height:${h}px"></i>`).join('');
+const fmtDur = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+
+function toast(msg, ms=3200) {
+  const t = document.getElementById('toast');
+  t.innerHTML = msg; t.classList.add('on');
+  clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove('on'), ms);
+}
+
+/* ============ 共享片段 ============ */
+const starsHtml = (rec, small=false) => `
+  <div class="stars ${small?'small':''}">
+    ${[1,2,3,4,5].map(n=>`<button data-act="star" data-n="${n}" class="${rec.rating>=n?'on':''}">★</button>`).join('')}
+  </div>`;
+
+const gradeBadge = rec => { const g = GRADE(rec.rating); return `<span class="badge ${g.c}">${g.n}</span>`; };
+
+const visBadge = i => `<span class="badge ${VIS[i].cls}">${VIS[i].k}</span>`;
+
+const visSeg = rec => `
+  <div class="seg">
+    ${VIS.map((v,i)=>`<button data-act="vis" data-i="${i}" class="${rec.vis===i?'on':''}">${v.k}</button>`).join('')}
+  </div>`;
+
+const partChips = rec => `
+  <div class="chips">
+    ${FAMILY.map(f=>`<button class="chip ${rec.participants.includes(f)?'on':''}" data-act="part" data-f="${f}">${f}</button>`).join('')}
+    <span class="hint" style="align-self:center">可跳过</span>
+  </div>`;
+
+const mediaGrid = rec => {
+  if (rec.media.mode === 'video') {
+    return rec.media.video
+      ? `<div class="tile video"><span class="del" data-act="del-video">✕</span><b>▶</b>视频 · 0:37<span class="hint">≤60s</span></div>`
+      : `<button class="tile video" data-act="add-video"><b>＋</b>拍摄 / 选择视频<span class="hint">限 1 个 · ≤60s</span></button>`;
+  }
+  let h = rec.media.photos.map((_,i)=>`
+    <div class="tile">${i===0?'<span class="cover-mark">封面</span>':''}
+      <span class="del" data-act="del-photo" data-i="${i}">✕</span><b>📷</b>照片 ${i+1}
+    </div>`).join('');
+  if (rec.media.photos.length < 9)
+    h += `<button class="tile" data-act="add-photo"><b>＋</b>${rec.media.photos.length? '':'图 ' + rec.media.photos.length + '/9'}</button>`;
+  return `<div class="grid9">${h}</div>`;
+};
+
+const voiceBlock = rec => {
+  if (rec.recording) return `
+    <div class="vbar">
+      <div class="rec-live"><span class="dot"></span>录制中 ${fmtDur(rec.recT)}</div>
+      <div class="grow" style="flex:1"></div>
+      <button class="btn sm rec" data-act="voice-stop">完成</button>
+    </div>`;
+  if (rec.voice) return `
+    <div class="vbar">
+      <div class="play">▶</div>
+      <div class="wave">${waveHtml()}</div>
+      <span class="dur">${fmtDur(rec.voice)}</span>
+      <span class="x" data-act="voice-del">✕</span>
+    </div>`;
+  return `<button class="btn ghost sm" data-act="voice-start" style="width:auto">🎙 按住说话（≤60s）</button>`;
+};
+
+const placeCard = (rec, openAct='open-sheet') => rec.place ? `
+  <div class="place-card set" data-act="${openAct}">
+    <span class="ic">📍</span>
+    <div class="grow">
+      <div class="nm">${esc(rec.place.name)}</div>
+      <div class="meta">${rec.place.type}${rec.place.known ? ` · 去过 ${rec.place.visits} 次 · 均 ${rec.place.avg}★` : ' · 新地点，首打卡'}</div>
+    </div>
+    ${rec.place.known ? gradeBadge2(rec.place.avg) : '<span class="badge dim">首次</span>'}
+  </div>` : `
+  <div class="place-card" data-act="${openAct}">
+    <span class="ic">📍</span>
+    <div class="grow">
+      <div class="nm" style="color:var(--ink-2)">搜索地点，或用当前位置打卡</div>
+      <div class="meta">餐厅 / 景点 / 住宿 / 其他</div>
+    </div>
+    <span style="color:var(--ink-3)">›</span>
+  </div>`;
+const gradeBadge2 = avg => { const g = GRADE(Math.round(avg)); return `<span class="badge ${g.c}">${g.n}</span>`; };
+
+const timeRow = rec => { const t = TIMES[rec.timeIdx]; return `
+  <div class="rowline" data-act="time" style="cursor:pointer">
+    <span class="lbl">🕘</span>
+    <div class="grow">
+      <div class="lbl">${t.label} ${t.bj?'<span class="badge mid">补记</span>':''}</div>
+      <div class="hint">${t.sub}（点击切换演示）</div>
+    </div>
+    <span style="color:var(--ink-3)">›</span>
+  </div>`; };
+
+const textBlock = rec => `
+  <textarea class="tt" data-text placeholder="这次体验如何？吐槽一句…（≤500 字，可加 emoji）">${esc(rec.text)}</textarea>
+  <div class="count">${rec.text.length}/500</div>`;
+
+/* ============ 变体 A：分步向导 ============ */
+const A_STEPS = ['地点','媒体','打分吐槽','同行与可见','预览发布'];
+function renderA() {
+  const r = st.a, s = r.step;
+  let body = '';
+  if (s === 0) body = `
+    <div class="q-title">这次在哪儿？</div>
+    <div class="q-sub">搜索选点，或一键用当前位置打卡。新地点第一次打卡时会选类型。</div>
+    ${placeCard(r)}
+    <div class="hint">去过的地方会带出历史评分，打完分自动汇入地点均分。</div>`;
+  if (s === 1) body = `
+    <div class="q-title">留下了什么？</div>
+    <div class="q-sub">最多 9 张照片，或 1 段不超过 60 秒的视频。</div>
+    <div class="seg">
+      <button data-act="mode" data-m="photo" class="${r.media.mode==='photo'?'on':''}">照片 ≤9</button>
+      <button data-act="mode" data-m="video" class="${r.media.mode==='video'?'on':''}">视频 ×1 ≤60s</button>
+    </div>
+    ${mediaGrid(r)}
+    <div class="hint">首图即封面，展示在地点卡片与详情页顶部。</div>`;
+  if (s === 2) body = `
+    <div class="q-title">这次体验如何？</div>
+    <div class="q-sub">评的是这一次，不是对地点的终身评价。</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+      <div class="stars stars-huge">${[1,2,3,4,5].map(n=>`<button data-act="star" data-n="${n}" class="${r.rating>=n?'on':''}">★</button>`).join('')}</div>
+      ${gradeBadge(r)}
+    </div>
+    <div class="sect">${textBlock(r)}</div>
+    <div class="sect">${voiceBlock(r)}</div>`;
+  if (s === 3) body = `
+    <div class="q-title">谁同行、给谁看？</div>
+    <div class="sect">
+      <div class="sect-h">同行的人<em>可跳过</em></div>
+      ${partChips(r)}
+    </div>
+    <div class="sect">
+      <div class="sect-h">可见范围<em>默认家庭圈</em></div>
+      ${visSeg(r)}
+      <div class="hint">「仅我俩」只有你和她可见；「仅自己」= 草稿日记。</div>
+    </div>
+    <div class="sect">
+      <div class="sect-h">时间<em>可改可补记</em></div>
+      ${timeRow(r)}
+    </div>`;
+  if (s === 4) body = previewCard(r);
+
+  document.getElementById('scrA').innerHTML = `
+    <div class="dots">
+      ${A_STEPS.map((_,i)=>`<i class="${i<=s?'on':''}"></i>`).join('')}
+      <span class="dlabel">${s+1}/5 · ${A_STEPS[s]}</span>
+    </div>
+    <div class="body">${body}</div>
+    <div class="footbar">
+      ${s>0?'<button class="btn ghost" data-act="step" data-n="'+(s-1)+'">上一步</button>':''}
+      ${s<4?'<button class="btn" data-act="step" data-n="'+(s+1)+'">下一步</button>'
+           :'<button class="btn" data-act="publish">发布 ✈️</button>'}
+    </div>`;
+}
+
+function previewCard(r) {
+  const g = GRADE(r.rating);
+  return `
+  <div class="q-title">确认发布</div>
+  <div class="preview">
+    <div class="cover">${r.media.mode==='photo' && r.media.photos.length
+      ? '📷 照片 ×' + r.media.photos.length + ' · 首图为封面'
+      : r.media.video ? '▶ 视频 0:37' : '（未配媒体）'}</div>
+    <div class="pv-body">
+      <div class="pv-place">📍 ${r.place ? esc(r.place.name) : '（未选地点）'}
+        ${r.place ? `<span class="badge dim">${r.place.type}</span>` : ''} ${gradeBadge(r)}
+      </div>
+      <div class="pv-meta">
+        ${visBadge(r.vis)}
+        ${r.participants.length ? '同行：' + r.participants.join('、') : '未填同行'}
+        · ${TIMES[r.timeIdx].label}${TIMES[r.timeIdx].bj?'（补记）':''}
+      </div>
+      ${r.text ? `<div class="pv-text">${esc(r.text)}</div>` : ''}
+      ${r.voice ? `<div class="vbar"><div class="play">▶</div><div class="wave">${waveHtml()}</div><span class="dur">${fmtDur(r.voice)}</span></div>` : ''}
+    </div>
+  </div>
+  <div class="hint">发布后：地点均分与到访次数自动更新；新地点首次建档。</div>`;
+}
+
+/* ============ 变体 B：单页长表单 ============ */
+function renderB() {
+  const r = st.b;
+  document.getElementById('scrB').innerHTML = `
+    <div class="navbar"><span class="x">✕</span><span class="t">发布回忆记录</span><span class="x" style="opacity:0">✕</span></div>
+    <div class="body">
+      <div class="sect">
+        <div class="sect-h">地点</div>
+        ${placeCard(r)}
+      </div>
+      <div class="sect">
+        <div class="sect-h">媒体<em>≤9 图 或 1 个 ≤60s 视频</em></div>
+        <div class="seg">
+          <button data-act="mode" data-m="photo" class="${r.media.mode==='photo'?'on':''}">照片 ≤9</button>
+          <button data-act="mode" data-m="video" class="${r.media.mode==='video'?'on':''}">视频 ×1</button>
+        </div>
+        ${mediaGrid(r)}
+        <div class="hint">首图即封面。</div>
+      </div>
+      <div class="sect">
+        <div class="sect-h">这次体验<em>评这一次，非终身评价</em></div>
+        <div style="display:flex;align-items:center;gap:12px">${starsHtml(r)} ${gradeBadge(r)}</div>
+        ${textBlock(r)}
+        ${voiceBlock(r)}
+      </div>
+      <div class="sect">
+        <div class="sect-h">同行的人<em>可跳过</em></div>
+        ${partChips(r)}
+      </div>
+      <div class="sect">
+        <div class="sect-h">可见范围<em>默认家庭圈</em></div>
+        ${visSeg(r)}
+      </div>
+      <div class="sect">
+        <div class="sect-h">时间</div>
+        ${timeRow(r)}
+      </div>
+    </div>
+    <div class="footbar"><button class="btn" data-act="publish">发布 ✈️</button></div>`;
+}
+
+/* ============ 变体 C：拍摄优先 ============ */
+function renderC() {
+  const r = st.c;
+  document.getElementById('scrC').innerHTML = `
+    <div class="navbar"><span class="x">✕</span><span class="t">打卡</span><span class="x" style="opacity:0">✕</span></div>
+    <div class="body" style="gap:14px">
+      ${r.media.mode==='photo' ? mediaGrid(r) : `
+        <div class="seg">
+          <button data-act="mode" data-m="photo" class="">照片</button>
+          <button data-act="mode" data-m="video" class="on">视频</button>
+        </div>
+        ${mediaGrid(r)}`}
+      <textarea class="tt" data-text style="min-height:76px;border:none;background:transparent;padding:4px 2px" placeholder="这次体验如何？">${esc(r.text)}</textarea>
+      ${r.media.mode==='video' ? '' : `<button class="btn ghost sm" data-act="mode-video" style="width:auto">换视频 ×1 ≤60s</button>`}
+      <div class="rowline" style="padding:6px 2px">
+        <span class="lbl">📍</span>
+        <div class="grow">${r.place
+          ? `<span class="chip on" data-act="open-sheet" style="cursor:pointer">${esc(r.place.name)} · ${r.place.type} ›</span>`
+          : '<span style="color:var(--ink-2);font-size:14px" data-act="open-sheet">选择地点…</span>'}</div>
+      </div>
+      <div class="rowline" style="padding:6px 2px">
+        <span class="lbl">⭐</span>
+        <div class="stars small">${[1,2,3,4,5].map(n=>`<button data-act="star" data-n="${n}" class="${r.rating>=n?'on':''}">★</button>`).join('')}</div>
+        <div class="grow"></div>${gradeBadge(r)}
+      </div>
+      <div class="rowline" style="padding:6px 2px;border-bottom:none">${voiceBlock(r)}</div>
+      ${r.more ? `
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <div class="sect"><div class="sect-h">同行的人<em>可跳过</em></div>${partChips(r)}</div>
+          <div class="sect"><div class="sect-h">可见范围</div>${visSeg(r)}</div>
+          ${timeRow(r)}
+        </div>` : `
+        <button class="btn ghost sm" data-act="more" style="width:auto">＋ 同行 · 可见范围 · 时间</button>`}
+    </div>
+    <div class="footbar">
+      <button class="btn ghost" data-act="vis-cycle" style="width:auto">${VIS[r.vis].k} ›</button>
+      <button class="btn" data-act="publish">发布</button>
+    </div>`;
+}
+
+/* ============ 选点 sheet ============ */
+function renderSheet() {
+  const el = document.getElementById('sheet');
+  if (sheetMode === 'search') el.innerHTML = `
+    <div class="grip"></div>
+    <div class="sh">这次在哪儿？</div>
+    <input class="search-in" id="poiSearch" placeholder="搜索：餐厅 / 景点 / 店名…" style="margin-bottom:10px">
+    <button class="btn" data-act="cur-loc" style="margin-bottom:14px">📍 用当前位置一键打卡</button>
+    <div id="poiList">
+      ${POIS.map((p,i)=>`
+        <div class="poi" data-act="poi" data-i="${i}">
+          <div class="grow">
+            <div class="nm">${p.name}</div>
+            <div class="meta">${p.type} · ${p.dist}${p.known ? ` · 去过 ${p.visits} 次 · 均 ${p.avg}★` : ''}</div>
+          </div>
+          ${p.known ? gradeBadge2(p.avg) : '<span class="badge dim">新</span>'}
+        </div>`).join('')}
+    </div>`;
+  if (sheetMode === 'type') { const p = sheetPoi; el.innerHTML = `
+    <div class="grip"></div>
+    <div class="sh">📍 ${esc(p.name)}</div>
+    <div class="q-sub" style="margin-bottom:12px">新地点首次打卡 — 选个类型，用于归档与地点页：</div>
+    <div class="chips" style="margin-bottom:16px">
+      ${TYPES.map(t=>`<button class="chip ${sheetType===t?'on':''}" data-act="pick-type" data-t="${t}">${t}</button>`).join('')}
+    </div>
+    <button class="btn" data-act="type-done">就打这里</button>`; }
+  if (sheetMode === 'cur') el.innerHTML = `
+    <div class="grip"></div>
+    <div class="sh">📍 当前位置</div>
+    <div class="q-sub" style="margin-bottom:12px">北山街 · 断桥附近 — 附近没有已归档的地点，这是新地点：</div>
+    <input class="search-in" id="curName" placeholder="给这个地方起个名（可留空，自动取「北山街打卡」）" style="margin-bottom:12px">
+    <div class="chips" style="margin-bottom:16px">
+      ${TYPES.map(t=>`<button class="chip ${sheetType===t?'on':''}" data-act="pick-type" data-t="${t}">${t}</button>`).join('')}
+    </div>
+    <button class="btn" data-act="cur-done">就打这里</button>`;
+}
+
+/* ============ 发布 ============ */
+function compose(r) {
+  return {
+    地点: r.place ? r.place.name + '(' + r.place.type + (r.place.known ? ',老地点' : ',新建') + ')' : null,
+    媒体: r.media.mode==='video' ? (r.media.video?'视频0:37':null) : (r.media.photos.length ? '照片x'+r.media.photos.length : null),
+    评分: r.rating ? r.rating + '★ ' + GRADE(r.rating).n : null,
+    吐槽: r.text ? (r.text.length>18 ? r.text.slice(0,18)+'…' : r.text) : null,
+    语音: r.voice ? fmtDur(r.voice) : null,
+    同行: r.participants.length ? r.participants.join(',') : '(跳过)',
+    可见: VIS[r.vis].k,
+    时间: TIMES[r.timeIdx].label + (TIMES[r.timeIdx].bj ? '(补记)' : ''),
+  };
+}
+function publish() {
+  const r = st[cur]; r.done = true;
+  const c = compose(r);
+  toast('✅ 已发布（原型模拟）<br>' + Object.entries(c).filter(([,v])=>v).map(([k,v])=>k+': '+esc(v)).join('<br>'), 5000);
+}
+
+/* ============ 状态条 & 同步 ============ */
+function syncStrip() {
+  const r = st[cur], c = compose(r);
+  document.getElementById('stateStrip').innerHTML =
+    `<div class="h">记录状态 · 变体 ${cur.toUpperCase()}</div>` +
+    Object.entries(c).map(([k,v])=>`${k}: <b style="color:#fff">${v===null?'—':esc(v)}</b>`).join('<br>');
+}
+function sync() {
+  ({a:renderA, b:renderB, c:renderC})[cur]();
+  document.querySelectorAll('.screen').forEach(el => el.classList.toggle('on', el.dataset.v === cur));
+  const vd = VARIANTS.find(v => v.k.toLowerCase() === cur);
+  document.getElementById('vLabel').textContent = `${vd.k} — ${vd.name}`;
+  document.getElementById('diffNote').innerHTML = vd.note;
+  syncStrip();
+}
+function switchTo(v) {
+  cur = v;
+  const u = new URL(location); u.searchParams.set('variant', v.toUpperCase()); history.replaceState(null,'',u);
+  sync();
+}
+
+/* ============ 事件 ============ */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const act = t.dataset.act, r = st[cur];
+  switch (act) {
+    case 'prev': case 'next': {
+      const i = VARIANTS.findIndex(v => v.k.toLowerCase() === cur);
+      switchTo(VARIANTS[(i + (act==='next'?1:-1) + VARIANTS.length) % VARIANTS.length].k.toLowerCase());
+      return; }
+    case 'open-sheet': sheetMode='search'; sheetPoi=null; sheetType='餐厅'; renderSheet();
+      document.getElementById('sheetMask').classList.add('on'); return;
+    case 'sheet-close': document.getElementById('sheetMask').classList.remove('on'); return;
+    case 'poi': {
+      const p = POIS[+t.dataset.i];
+      if (p.known) { r.place = {...p}; document.getElementById('sheetMask').classList.remove('on'); }
+      else { sheetMode='type'; sheetPoi=p; sheetType=p.type; renderSheet(); }
+      return; }
+    case 'pick-type': sheetType = t.dataset.t; renderSheet(); return;
+    case 'type-done': r.place = {...sheetPoi, type:sheetType}; document.getElementById('sheetMask').classList.remove('on'); break;
+    case 'cur-loc': sheetMode='cur'; sheetType='景点'; renderSheet(); return;
+    case 'cur-done': {
+      const nm = (document.getElementById('curName')?.value || '').trim() || '北山街打卡';
+      r.place = { name:nm, type:sheetType, known:false };
+      document.getElementById('sheetMask').classList.remove('on'); break; }
+    case 'mode': r.media.mode = t.dataset.m; break;
+    case 'mode-video': r.media.mode = 'video'; break;
+    case 'add-photo': if (r.media.photos.length < 9) r.media.photos.push(r.media.photos.length+1); break;
+    case 'del-photo': r.media.photos.splice(+t.dataset.i, 1); break;
+    case 'add-video': r.media.video = true; break;
+    case 'del-video': r.media.video = false; break;
+    case 'star': r.rating = +t.dataset.n === r.rating ? 0 : +t.dataset.n; break;
+    case 'voice-start':
+      r.recording = true; r.recT = 0;
+      clearInterval(recTimer);
+      recTimer = setInterval(()=>{ r.recT++; const el = document.querySelector('.rec-live'); if (el) el.innerHTML = `<span class="dot"></span>录制中 ${fmtDur(r.recT)}`; }, 1000);
+      break;
+    case 'voice-stop': clearInterval(recTimer); r.recording = false; r.voice = r.recT || 7; break;
+    case 'voice-del': r.voice = 0; r.recT = 0; break;
+    case 'part': { const f = t.dataset.f;
+      r.participants = r.participants.includes(f) ? r.participants.filter(x=>x!==f) : [...r.participants, f]; break; }
+    case 'vis': r.vis = +t.dataset.i; break;
+    case 'vis-cycle': r.vis = (r.vis+1) % VIS.length; break;
+    case 'time': r.timeIdx = (r.timeIdx+1) % TIMES.length; break;
+    case 'step': r.step = +t.dataset.n; break;
+    case 'more': r.more = true; break;
+    case 'publish': publish(); return;
+  }
+  sync();
+});
+document.addEventListener('input', e => {
+  if (e.target.matches('[data-text]')) {
+    st[cur].text = e.target.value.slice(0, 500);
+    const c = e.target.parentElement.querySelector('.count'); if (c) c.textContent = `${st[cur].text.length}/500`;
+    syncStrip();
+  }
+});
+document.getElementById('sheetMask').addEventListener('click', e => {
+  if (e.target.id === 'sheetMask') e.target.classList.remove('on');
+});
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') document.querySelector('[data-act="prev"]').click();
+  if (e.key === 'ArrowRight') document.querySelector('[data-act="next"]').click();
+});
+
+/* ============ 启动 ============ */
+const urlV = (new URLSearchParams(location.search).get('variant') || 'A').toLowerCase()[0];
+switchTo(['a','b','c'].includes(urlV) ? urlV : 'a');
+</script>
+</body>
+</html>

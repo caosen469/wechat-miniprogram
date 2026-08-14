@@ -1,0 +1,910 @@
+<!doctype html>
+<!-- PROTOTYPE — T5 低保真原型（throwaway）· 回答：旅行地图页 + 记录详情页长什么样、怎么用
+     三个变体经底部悬浮条 / 方向键 / ?variant=A|B|C 切换。详见 GitHub issue #6。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>旅行地图交互原型</title>
+<style>
+  /* ===== 主题 token：亮 / 暗 双主题 ===== */
+  :root {
+    --ground: #ececea;          /* 页面底 */
+    --panel: #ffffff;           /* 手机屏幕底 */
+    --panel-2: #f4f4f2;         /* 卡片 / 次级面 */
+    --ink: #1c1c1e;
+    --ink-2: #6e6e73;
+    --ink-3: #a1a1a6;
+    --line: #d8d8d5;
+    --line-strong: #b9b9b5;
+    --ph: #e3e3e0;              /* 照片占位灰 */
+    --ph-ink: #9a9a96;          /* 占位字 */
+    --map-bg: #eef0ec;
+    --map-road: #ffffff;
+    --map-grid: #e2e4df;
+    --map-water: #dce7e8;
+    --good: #1e8e5a;            /* 宝藏 */
+    --mid: #b97f14;             /* 还行 */
+    --bad: #cf4436;             /* 踩雷 */
+    --couple: #c05c96;          /* 仅我俩 */
+    --me: #7b7bf0;              /* 当前位置点 */
+    --bezel: #2a2a2c;
+    --accent: #0f6b4f;
+    --toast-bg: rgba(28,28,30,.92);
+    --toast-ink: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #191919;
+      --panel: #232325;
+      --panel-2: #2c2c2e;
+      --ink: #ececec;
+      --ink-2: #9c9ca1;
+      --ink-3: #6d6d72;
+      --line: #3a3a3d;
+      --line-strong: #4c4c50;
+      --ph: #333336;
+      --ph-ink: #78787d;
+      --map-bg: #26282a;
+      --map-road: #343638;
+      --map-grid: #2d2f31;
+      --map-water: #22323a;
+      --good: #35b478;
+      --mid: #d19a3a;
+      --bad: #e06557;
+      --couple: #d47ab0;
+      --accent: #4cc49a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #191919;
+    --panel: #232325;
+    --panel-2: #2c2c2e;
+    --ink: #ececec;
+    --ink-2: #9c9ca1;
+    --ink-3: #6d6d72;
+    --line: #3a3a3d;
+    --line-strong: #4c4c50;
+    --ph: #333336;
+    --ph-ink: #78787d;
+    --map-bg: #26282a;
+    --map-road: #343638;
+    --map-grid: #2d2f31;
+    --map-water: #22323a;
+    --good: #35b478;
+    --mid: #d19a3a;
+    --bad: #e06557;
+    --couple: #d47ab0;
+    --accent: #4cc49a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 28px 16px 110px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== 页面级说明 ===== */
+  .brief { max-width: 560px; text-align: center; margin-bottom: 22px; }
+  .brief h1 { font-size: 17px; font-weight: 600; letter-spacing: .02em; }
+  .brief p { margin-top: 6px; font-size: 12.5px; color: var(--ink-2); line-height: 1.7; }
+  .brief .q { display: inline-block; margin-top: 2px; padding: 2px 10px; border: 1px solid var(--line-strong); border-radius: 99px; font-size: 11px; color: var(--ink-2); }
+  .diff-note { margin-top: 10px; font-size: 12px; color: var(--ink-2); max-width: 560px; text-align: center; line-height: 1.7; min-height: 20px; }
+  .diff-note b { color: var(--ink); font-weight: 600; }
+
+  /* ===== 手机框 ===== */
+  .phone {
+    width: 390px; max-width: 100%;
+    background: var(--panel);
+    border: 8px solid var(--bezel);
+    border-radius: 44px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,.25);
+    position: relative;
+    height: 760px;
+    display: flex; flex-direction: column;
+  }
+  @media (max-width: 440px) { .phone { height: 640px; } }
+
+  .statusbar {
+    height: 40px; flex: none;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 18px; font-size: 12px; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .capsule {
+    width: 76px; height: 28px; border-radius: 99px;
+    background: rgba(127,127,127,.18);
+    display: flex; align-items: center; justify-content: space-evenly;
+    color: var(--ink); font-size: 13px; font-weight: 600;
+  }
+  .viewport { flex: 1; position: relative; overflow: hidden; }
+
+  .screen {
+    position: absolute; inset: 0;
+    display: none; flex-direction: column;
+    background: var(--panel);
+  }
+  .screen.on { display: flex; }
+
+  .navbar {
+    flex: none; height: 44px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    font-size: 16px; font-weight: 600;
+  }
+  .navbar .back { font-size: 20px; padding: 2px 8px 2px 0; color: var(--accent); cursor: pointer; user-select: none; }
+  .navbar .sub { font-size: 12px; color: var(--ink-2); font-weight: 400; }
+
+  .scroll { flex: 1; overflow-y: auto; }
+
+  /* ===== 通用小件 ===== */
+  .chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 10.5px; line-height: 1;
+    padding: 4px 8px; border-radius: 99px;
+    border: 1px solid var(--line-strong); color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .chip.vis-family { color: var(--good); border-color: var(--good); }
+  .chip.vis-couple { color: var(--couple); border-color: var(--couple); }
+  .chip.vis-me     { color: var(--ink-3); border-color: var(--ink-3); }
+  .chip.tier-good { color: var(--good); border-color: var(--good); }
+  .chip.tier-mid  { color: var(--mid); border-color: var(--mid); }
+  .chip.tier-bad  { color: var(--bad); border-color: var(--bad); }
+
+  .stars { color: var(--mid); letter-spacing: 1px; font-size: 13px; }
+  .stars .off { color: var(--line-strong); }
+
+  .avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--ph); color: var(--ph-ink);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; flex: none; border: 1px solid var(--line);
+  }
+  .avatar.lg { width: 34px; height: 34px; font-size: 13px; }
+
+  /* 照片占位 */
+  .ph-box {
+    background:
+      linear-gradient(to top left, transparent calc(50% - .6px), var(--line) 50%, transparent calc(50% + .6px)),
+      linear-gradient(to top right, transparent calc(50% - .6px), var(--line) 50%, transparent calc(50% + .6px)),
+      var(--ph);
+    color: var(--ph-ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; text-align: center; line-height: 1.3;
+    border-radius: 4px; overflow: hidden;
+  }
+
+  /* 语音条 */
+  .voice {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 99px; padding: 8px 14px; cursor: pointer;
+  }
+  .voice .tri {
+    width: 0; height: 0; border-style: solid;
+    border-width: 5px 0 5px 9px;
+    border-color: transparent transparent transparent var(--accent);
+  }
+  .voice .bars { display: flex; align-items: center; gap: 2px; height: 14px; }
+  .voice .bars i { width: 2.5px; border-radius: 2px; background: var(--ink-3); }
+  .voice .dur { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  /* toast */
+  .toast {
+    position: absolute; left: 50%; bottom: 90px;
+    transform: translateX(-50%);
+    background: var(--toast-bg); color: var(--toast-ink);
+    font-size: 12.5px; padding: 9px 16px; border-radius: 10px;
+    opacity: 0; pointer-events: none; transition: opacity .25s;
+    z-index: 60; max-width: 80%; text-align: center;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ===== 地图（低保真抽象底图）===== */
+  .map {
+    position: relative; overflow: hidden;
+    background:
+      linear-gradient(90deg, transparent 48.6%, var(--map-water) 48.6%, var(--map-water) 56%, transparent 56%),
+      linear-gradient(0deg, transparent 30%, var(--map-road) 30%, var(--map-road) 33%, transparent 33%),
+      linear-gradient(84deg, transparent 62%, var(--map-road) 62%, var(--map-road) 64.5%, transparent 64.5%),
+      repeating-linear-gradient(0deg, transparent 0 34px, var(--map-grid) 34px 35px),
+      repeating-linear-gradient(90deg, transparent 0 34px, var(--map-grid) 34px 35px),
+      var(--map-bg);
+  }
+  .me-dot {
+    position: absolute; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--me); border: 3px solid var(--panel);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--me) 35%, transparent);
+    transform: translate(-50%,-50%);
+  }
+  .marker {
+    position: absolute; transform: translate(-50%, -100%);
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    cursor: pointer; z-index: 5;
+  }
+  .marker .pin {
+    min-width: 30px; height: 22px; padding: 0 6px;
+    border-radius: 11px 11px 11px 3px;
+    transform: rotate(-45deg);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 10px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .marker .pin span { transform: rotate(45deg); }
+  .marker .stem { width: 2px; height: 5px; background: inherit; margin-top: -4px; }
+  .pin.good { background: var(--good); }
+  .pin.mid  { background: var(--mid); }
+  .pin.bad  { background: var(--bad); }
+
+  /* 气泡卡（customCallout 的低保真形态）*/
+  .callout {
+    position: absolute; transform: translate(-50%, calc(-100% - 14px));
+    width: 168px; z-index: 20;
+    background: var(--panel); border: 1px solid var(--line-strong);
+    border-radius: 10px; padding: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.14);
+    display: none;
+  }
+  .callout.on { display: block; }
+  .callout::after {
+    content: ""; position: absolute; left: 50%; bottom: -6px;
+    width: 10px; height: 10px; background: var(--panel);
+    border-right: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong);
+    transform: translateX(-50%) rotate(45deg);
+  }
+  .callout .co-ph { height: 74px; border-radius: 6px; margin-bottom: 7px; }
+  .callout .co-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .callout .co-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 3px; }
+  .callout .co-visits { font-size: 10px; color: var(--ink-2); }
+  .callout .co-btns { display: flex; gap: 6px; margin-top: 8px; }
+  .callout .co-btn {
+    flex: 1; text-align: center; font-size: 11.5px; padding: 6px 0;
+    border-radius: 6px; cursor: pointer; border: 1px solid var(--line-strong);
+    color: var(--ink);
+  }
+  .callout .co-btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* 底部抽屉（地点的历次记录）*/
+  .sheet-mask { position: absolute; inset: 0; background: rgba(0,0,0,.3); z-index: 30; display: none; }
+  .sheet-mask.on { display: block; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 31;
+    background: var(--panel); border-radius: 16px 16px 0 0;
+    max-height: 68%; display: none; flex-direction: column;
+    padding-bottom: 12px;
+  }
+  .sheet.on { display: flex; }
+  .sheet .grip { width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 8px auto 2px; }
+  .sheet .sh-head { padding: 8px 16px 10px; border-bottom: 1px solid var(--line); }
+  .sheet .sh-title { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .sheet .sh-sub { margin-top: 4px; font-size: 11.5px; color: var(--ink-2); display: flex; gap: 10px; align-items: center; }
+  .sheet .sh-list { overflow-y: auto; padding: 4px 16px; }
+
+  /* 记录行（抽屉 / 地点页共用）*/
+  .rec-row {
+    display: flex; gap: 10px; padding: 12px 0;
+    border-bottom: 1px solid var(--line); cursor: pointer;
+  }
+  .rec-row:last-child { border-bottom: none; }
+  .rec-row .rr-ph { width: 62px; height: 62px; flex: none; }
+  .rec-row .rr-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .rec-row .rr-l1 { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+  .rec-row .rr-l1 .who { color: var(--ink); font-weight: 600; font-size: 13px; }
+  .rec-row .rr-text { font-size: 12.5px; line-height: 1.5; color: var(--ink);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rec-row .rr-l3 { display: flex; align-items: center; gap: 6px; }
+
+  /* FAB */
+  .fab {
+    position: absolute; right: 16px; bottom: 24px; z-index: 15;
+    background: var(--accent); color: #fff;
+    border-radius: 99px; padding: 12px 18px;
+    font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+    box-shadow: 0 8px 20px rgba(0,0,0,.22); cursor: pointer;
+  }
+
+  /* ===== 变体 A ===== */
+  .a-map { flex: 1; }
+
+  /* ===== 变体 B ===== */
+  .b-top { flex: none; height: 42%; position: relative; border-bottom: 1px solid var(--line); }
+  .b-checkin {
+    position: absolute; left: 50%; bottom: -21px; transform: translateX(-50%); z-index: 16;
+    background: var(--panel); border: 1.5px solid var(--accent); color: var(--accent);
+    border-radius: 99px; padding: 10px 20px; font-size: 13px; font-weight: 600;
+    box-shadow: 0 6px 16px rgba(0,0,0,.15); cursor: pointer; white-space: nowrap;
+  }
+  .b-feed-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 34px 16px 6px; font-size: 13px; color: var(--ink-2);
+  }
+  .b-feed-head .t { font-size: 14px; font-weight: 600; color: var(--ink); }
+  .b-feed-head .clear { color: var(--accent); cursor: pointer; display: none; }
+  .b-feed-wrap { display: flex; gap: 12px; overflow-x: auto; padding: 6px 16px 20px; scroll-snap-type: x mandatory; }
+  .b-card {
+    flex: none; width: 200px; scroll-snap-align: start;
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    background: var(--panel); cursor: pointer;
+  }
+  .b-card .bc-ph { height: 110px; border-radius: 0; }
+  .b-card .bc-body { padding: 9px 11px 11px; }
+  .b-card .bc-place { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .b-card .bc-place .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .b-card .bc-text { margin-top: 5px; font-size: 11.5px; color: var(--ink-2); line-height: 1.5; height: 34px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .b-card .bc-foot { margin-top: 7px; display: flex; align-items: center; justify-content: space-between; }
+
+  /* ===== 变体 C ===== */
+  .seg {
+    margin: 10px 16px; display: flex; border: 1px solid var(--line-strong);
+    border-radius: 9px; overflow: hidden; font-size: 13px; flex: none;
+  }
+  .seg div { flex: 1; text-align: center; padding: 8px 0; cursor: pointer; color: var(--ink-2); }
+  .seg div.on { background: var(--accent); color: #fff; }
+  .place-card {
+    margin: 0 16px 14px; border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden; background: var(--panel); cursor: pointer;
+  }
+  .place-card .pc-mosaic { display: grid; grid-template-columns: 1.6fr 1fr; grid-template-rows: 84px 84px; }
+  .place-card .pc-main { grid-row: span 2; border-radius: 0; }
+  .place-card .pc-body { padding: 10px 13px 12px; }
+  .place-card .pc-l1 { display: flex; align-items: center; justify-content: space-between; }
+  .place-card .pc-name { font-size: 14.5px; font-weight: 600; }
+  .place-card .pc-l2 { margin-top: 5px; display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--ink-2); }
+  .c-stat-bar {
+    margin: 0 16px 14px; padding: 12px 14px; border: 1px dashed var(--line-strong);
+    border-radius: 12px; display: flex; align-items: center; justify-content: space-around;
+    font-size: 11px; color: var(--ink-2); text-align: center;
+  }
+  .c-stat-bar b { display: block; font-size: 16px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* ===== 详情页（三个变体各自的排版）===== */
+  .cover-hero { width: 100%; height: 210px; border-radius: 0; flex: none; }
+  .meta-block { padding: 14px 16px 0; }
+  .d-place-l1 { display: flex; align-items: center; gap: 8px; }
+  .d-place-name { font-size: 17px; font-weight: 700; }
+  .d-meta-row { margin-top: 9px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .d-text { padding: 12px 16px 0; font-size: 14.5px; line-height: 1.8; }
+  .d-section-label { padding: 18px 16px 8px; font-size: 11px; color: var(--ink-3); letter-spacing: .12em; }
+  .grid9 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 16px; }
+  .grid9 .ph-box { aspect-ratio: 1; }
+  .video-box { margin: 0 16px; height: 200px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .video-box .play {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(0,0,0,.45); color: #fff; font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .video-box .vd { font-size: 11px; color: var(--ph-ink); font-variant-numeric: tabular-nums; }
+
+  /* B 的朋友圈式详情 */
+  .feed-card { padding: 14px 16px; }
+  .feed-card .fc-head { display: flex; align-items: center; gap: 10px; }
+  .feed-card .fc-name { font-size: 14.5px; font-weight: 600; }
+  .feed-card .fc-time { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+  .feed-card .fc-vis { margin-left: auto; }
+  .feed-card .fc-text { margin-top: 10px; font-size: 15px; line-height: 1.75; }
+  .feed-card .fc-voice { margin-top: 10px; }
+  .feed-card .fc-foot { margin-top: 12px; display: flex; align-items: center; justify-content: space-between;
+    padding-top: 10px; border-top: 1px solid var(--line); }
+  .feed-card .fc-place-link { font-size: 12.5px; color: var(--accent); cursor: pointer; display: flex; align-items: center; gap: 5px; }
+
+  /* C 的相册式详情 */
+  .album-hero { position: relative; height: 300px; flex: none; cursor: pointer; }
+  .album-hero .ph-box { position: absolute; inset: 0; border-radius: 0; font-size: 13px; }
+  .album-hero .counter {
+    position: absolute; right: 12px; bottom: 12px;
+    background: rgba(0,0,0,.5); color: #fff; font-size: 11px;
+    padding: 3px 9px; border-radius: 99px; font-variant-numeric: tabular-nums;
+  }
+  .album-hero .swipe-hint { position: absolute; left: 12px; bottom: 12px; font-size: 10.5px; color: #fff; opacity: .8; }
+  .album-info { padding: 14px 16px 0; }
+  .album-info .al-l1 { display: flex; align-items: baseline; justify-content: space-between; }
+  .album-info .al-place { font-size: 16px; font-weight: 700; }
+  .album-info .al-avg { font-size: 11px; color: var(--ink-2); }
+  .album-info .al-stars { margin-top: 8px; font-size: 17px; }
+
+  /* ===== 悬浮切换条 ===== */
+  .switcher {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 4px;
+    background: var(--toast-bg); color: var(--toast-ink);
+    border-radius: 99px; padding: 6px 8px; z-index: 100;
+    box-shadow: 0 10px 28px rgba(0,0,0,.3);
+    font-size: 13px; user-select: none;
+  }
+  .switcher button {
+    background: none; border: none; color: var(--toast-ink);
+    font-size: 15px; padding: 6px 12px; cursor: pointer; border-radius: 99px;
+  }
+  .switcher button:hover { background: rgba(255,255,255,.15); }
+  .switcher button:focus-visible { outline: 2px solid var(--toast-ink); outline-offset: -2px; }
+  .switcher .v-label { padding: 0 8px; min-width: 190px; text-align: center; font-weight: 600; letter-spacing: .02em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="brief">
+  <h1>旅行地图 + 记录详情 · 低保真交互原型</h1>
+  <p>回答 T5（issue #6）：去过的地方在地图页怎么呈现、怎么点进记录；照片 / 视频、打分、吐槽、可见范围在详情页怎么排版。</p>
+  <span class="q">按 T3 决议的信息模型 · 点击一切可点的东西 · ← → 键切换变体</span>
+</div>
+<div class="diff-note" id="diffNote"></div>
+
+<div class="phone">
+  <div class="statusbar">
+    <span>9:41</span>
+    <div class="capsule"><span>⋯</span><span>◉</span></div>
+  </div>
+  <div class="viewport" id="viewport"></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<div class="switcher" role="toolbar" aria-label="原型变体切换">
+  <button id="prevBtn" aria-label="上一个变体">◀</button>
+  <span class="v-label" id="vLabel"></span>
+  <button id="nextBtn" aria-label="下一个变体">▶</button>
+</div>
+
+<script>
+/* ============ 假数据（按 T3 信息模型）============ */
+const PLACES = {
+  p1: { name: '老吉士本帮菜', type: '餐厅', avg: 4.7, visits: 3, x: 32, y: 34, cover: '红烧肉 · 招牌' },
+  p2: { name: '外滩源观景台', type: '景点', avg: 4.5, visits: 2, x: 64, y: 24, cover: '全家合影' },
+  p3: { name: '半山小院民宿', type: '住宿', avg: 5.0, visits: 1, x: 76, y: 60, cover: '院子 · 秋千' },
+  p4: { name: '小龙坎老火锅', type: '餐厅', avg: 2.0, visits: 1, x: 48, y: 64, cover: '鸳鸯锅' },
+  p5: { name: '西湖断桥',     type: '景点', avg: 3.0, visits: 4, x: 16, y: 56, cover: '断桥 · 游船' },
+};
+const RECORDS = [
+  { id: 'r1', place: 'p1', author: '阿珍', parts: ['我', '妈妈'], date: '8月9日 19:42', stars: 4, tier: 'good',
+    text: '红烧肉绝了，妈妈连汤汁都拿来拌饭😂 服务阿姨还多送了一碟腌萝卜，下次带爸爸来。',
+    voice: '0:29', photos: ['红烧肉', '腌萝卜', '门口', '糖醋小排', '妈妈举杯', '街景'], vis: 'family' },
+  { id: 'r4', place: 'p2', author: '爸爸', parts: ['我', '阿珍', '妈妈'], date: '8月10日 17:30', stars: 5, tier: 'good',
+    text: '傍晚的外滩源没什么人，风吹得很舒服，全家拍了张合影。',
+    photos: ['合影', '江面', '落日'], vis: 'family' },
+  { id: 'r3', place: 'p5', author: '妈妈', parts: ['我', '爸爸', '阿珍'], date: '5月2日 10:05', stars: 3, tier: 'mid',
+    text: '人太多了，断桥变“人桥”。不过拍照还是好看的。',
+    voice: '0:12', photos: ['桥上', '游船', '柳树', '合影'], vis: 'family' },
+  { id: 'r2', place: 'p4', author: '我', parts: ['阿珍'], date: '7月30日 21:10', stars: 1, tier: 'bad',
+    text: '排了两个小时队，锅底齁咸，毛肚还煮不烂。阿珍说这是本年度最后一顿火锅。',
+    video: '0:47', vis: 'couple' },
+];
+const VIS = { family: ['家庭圈', 'vis-family'], couple: ['仅我俩', 'vis-couple'], me: ['仅自己', 'vis-me'] };
+const TIER = { good: ['宝藏', 'good'], mid: ['还行', 'mid'], bad: ['踩雷', 'bad'] };
+const STAR_TXT = n => '★'.repeat(n) + `<span class="off">${'★'.repeat(5 - n)}</span>`;
+const tierOfAvg = a => a >= 4 ? 'good' : a >= 3 ? 'mid' : 'bad';
+const recsOf = pid => RECORDS.filter(r => r.place === pid);
+
+/* ============ 小组件 ============ */
+function avatar(name, lg) { return `<span class="avatar${lg ? ' lg' : ''}">${name[0]}</span>`; }
+function visChip(r) { const v = VIS[r.vis]; return `<span class="chip ${v[1]}">${v[0]}</span>`; }
+function tierChip(t) { const x = TIER[t]; return `<span class="chip tier-${x[1]}">${x[0]}</span>`; }
+function voiceBubble(r) {
+  if (!r.voice) return '';
+  const bars = Array.from({ length: 9 }, (_, i) => `<i style="height:${4 + (i * 7 + 5) % 11}px"></i>`).join('');
+  return `<div class="voice" title="点击播放（原型示意）"><span class="tri"></span><span class="bars">${bars}</span><span class="dur">${r.voice}</span></div>`;
+}
+function recRow(r) {
+  const p = PLACES[r.place];
+  const media = r.video
+    ? `<div class="ph-box rr-ph">▶ 视频 ${r.video}</div>`
+    : `<div class="ph-box rr-ph">${r.photos[0]}</div>`;
+  return `<div class="rec-row" data-rec="${r.id}">
+    ${media}
+    <div class="rr-body">
+      <div class="rr-l1"><span class="who">${r.author}</span><span>·</span><span>${r.date}</span><span style="margin-left:auto">${tierChip(r.tier)}</span></div>
+      <div class="rr-text">${r.text}</div>
+      <div class="rr-l3"><span class="stars" style="font-size:11px">${STAR_TXT(r.stars)}</span>
+        <span style="font-size:10.5px;color:var(--ink-3)">${r.parts.length ? '和 ' + r.parts.join('、') : ''}</span>
+        <span style="margin-left:auto">${visChip(r)}</span></div>
+    </div>
+  </div>`;
+}
+function markersHTML(placeIds, opts) {
+  return placeIds.map(id => {
+    const p = PLACES[id];
+    const t = tierOfAvg(p.avg);
+    return `<div class="marker" data-marker="${id}" style="left:${p.x}%;top:${p.y}%" title="${p.name}">
+      <div class="pin ${t}"><span>${p.avg.toFixed(1)}</span></div>
+    </div>`;
+  }).join('') + (opts && opts.me === false ? '' : `<div class="me-dot" style="left:55%;top:46%"></div>`);
+}
+function calloutHTML(pid, withCheckin) {
+  const p = PLACES[pid];
+  return `<div class="co-ph ph-box">${p.cover}</div>
+    <div class="co-name">${p.name}</div>
+    <div class="co-meta"><span class="stars" style="font-size:11px">${STAR_TXT(Math.round(p.avg))} <b style="color:var(--ink)">${p.avg.toFixed(1)}</b></span><span class="co-visits">去过 ${p.visits} 次</span></div>
+    <div class="co-btns">
+      <div class="co-btn" data-open-place="${pid}">看记录</div>
+      ${withCheckin ? `<div class="co-btn pri" data-checkin="${pid}">在这打卡</div>` : ''}
+    </div>`;
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ============ 变体注册 ============ */
+const VARIANTS = [
+  {
+    key: 'A', name: '全屏地图 · 气泡',
+    note: '<b>A — 全屏地图·气泡</b>：地图即首页。marker 按情绪档位着色并显示均分；点 marker 出气泡卡（customCallout）→「看记录」弹出该地点历次记录 → 点某条进详情。详情页：封面大图在上，地点/评分/参与者/吐槽/语音/图组依次向下。',
+    render: renderA,
+  },
+  {
+    key: 'B', name: '地图概览 + 回忆流',
+    note: '<b>B — 地图+回忆流</b>：上半屏地图作概览，下半屏横滑「最近的回忆」卡片；点地图上的 marker 直接把流筛选到那个地点；点卡片直达详情。详情页：朋友圈式——头像+作者打头，吐槽文字为主，图组跟在文字后面。',
+    render: renderB,
+  },
+  {
+    key: 'C', name: '足迹列表 · 地图为辅',
+    note: '<b>C — 足迹列表·地图为辅</b>：以「地点」为一等公民。段控切换 足迹列表 / 地图：列表按地点成卡（封面拼图、类型、均分、次数），点进地点页看它名下全部记录再进详情；地图只是同一份地点数据的另一视图。详情页：相册式——顶部全屏大图（点击翻页 1/6），信息压在下方。',
+    render: renderC,
+  },
+];
+
+/* ============ 变体 A：全屏地图 · 气泡 ============ */
+function renderA(vp) {
+  vp.innerHTML = `
+  <div class="screen on" data-s="a-map">
+    <div class="a-map map" id="aMap">
+      ${markersHTML(Object.keys(PLACES))}
+      <div class="callout" id="aCallout"></div>
+      <div class="fab" id="aFab">＋ 打卡</div>
+    </div>
+  </div>
+
+  <div class="sheet-mask" id="aMask"></div>
+  <div class="sheet" id="aSheet">
+    <div class="grip"></div>
+    <div class="sh-head">
+      <div class="sh-title" id="aShTitle"></div>
+      <div class="sh-sub" id="aShSub"></div>
+    </div>
+    <div class="sh-list" id="aShList"></div>
+  </div>
+
+  <div class="screen" data-s="a-detail">
+    <div class="navbar"><span class="back" data-nav="a-map">‹</span><span id="aDetTitle"></span><span class="sub" id="aDetSub"></span></div>
+    <div class="scroll" id="aDetBody"></div>
+  </div>`;
+
+  const callout = vp.querySelector('#aCallout');
+  vp.querySelectorAll('[data-marker]').forEach(m => {
+    m.onclick = e => {
+      e.stopPropagation();
+      const pid = m.dataset.marker;
+      callout.innerHTML = calloutHTML(pid, true);
+      callout.classList.add('on');
+      const p = PLACES[pid];
+      callout.style.left = Math.min(78, Math.max(22, p.x)) + '%';
+      callout.style.top = p.y + '%';
+    };
+  });
+  vp.querySelector('#aMap').addEventListener('click', e => {
+    if (!e.target.closest('[data-marker], .callout, .fab')) callout.classList.remove('on');
+  });
+  vp.querySelector('#aFab').onclick = () => toast('打卡：搜索选点 / 用当前位置（原型示意）');
+  vp.addEventListener('click', e => {
+    const ck = e.target.closest('[data-checkin]');
+    if (ck) { toast(`在「${PLACES[ck.dataset.checkin].name}」打卡：进入发布页（原型示意）`); return; }
+    const op = e.target.closest('[data-open-place]');
+    if (op) { openSheetA(op.dataset.openPlace); return; }
+    const rr = e.target.closest('.rec-row[data-rec]');
+    if (rr) { showDetailA(rr.dataset.rec); return; }
+  });
+  const mask = vp.querySelector('#aMask'), sheet = vp.querySelector('#aSheet');
+  mask.onclick = closeSheetA;
+  function closeSheetA() { mask.classList.remove('on'); sheet.classList.remove('on'); }
+  function openSheetA(pid) {
+    const p = PLACES[pid];
+    vp.querySelector('#aShTitle').innerHTML = `${p.name} <span class="chip">${p.type}</span>`;
+    vp.querySelector('#aShSub').innerHTML =
+      `<span class="stars" style="font-size:11px">${STAR_TXT(Math.round(p.avg))} 均分 ${p.avg.toFixed(1)}</span><span>${recsOf(pid).length} 条记录</span>`;
+    vp.querySelector('#aShList').innerHTML = recsOf(pid).map(recRow).join('');
+    callout.classList.remove('on');
+    mask.classList.add('on'); sheet.classList.add('on');
+  }
+  function showDetailA(rid) {
+    const r = RECORDS.find(x => x.id === rid), p = PLACES[r.place];
+    closeSheetA();
+    vp.querySelector('#aDetTitle').textContent = p.name;
+    vp.querySelector('#aDetSub').textContent = '回忆记录';
+    vp.querySelector('#aDetBody').innerHTML = `
+      ${r.video
+        ? `<div class="video-box ph-box"><div class="play">▶</div><span class="vd">视频 ${r.video} · mp4</span></div>`
+        : `<div class="cover-hero ph-box">${r.photos[0]} · 封面</div>`}
+      <div class="meta-block">
+        <div class="d-place-l1"><span class="d-place-name">${p.name}</span><span class="chip">${p.type}</span></div>
+        <div class="d-meta-row">
+          <span class="stars">${STAR_TXT(r.stars)}</span>${tierChip(r.tier)}
+          <span style="font-size:11px;color:var(--ink-3)">评的是这一次体验 · 该地点均分 ${p.avg.toFixed(1)}（${p.visits} 次）</span>
+        </div>
+        <div class="d-meta-row">
+          ${avatar(r.author, true)}
+          <span style="font-size:12.5px"><b>${r.author}</b> 发布</span>
+          ${r.parts.length ? `<span style="font-size:12.5px;color:var(--ink-2)">和 ${r.parts.join('、')} 一起</span>` : ''}
+          <span style="margin-left:auto">${visChip(r)}</span>
+        </div>
+        <div class="d-meta-row"><span style="font-size:11px;color:var(--ink-3)">${r.date}（可补记改时间）</span></div>
+      </div>
+      <div class="d-text">${r.text}</div>
+      ${r.voice ? `<div class="d-section-label">语音吐槽</div><div style="padding:0 16px">${voiceBubble(r)}</div>` : ''}
+      ${r.photos ? `<div class="d-section-label">照片 ${r.photos.length}/9 · 首图即封面</div>
+        <div class="grid9">${r.photos.map(n => `<div class="ph-box">${n}</div>`).join('')}</div>` : ''}
+      <div style="height:30px"></div>`;
+    nav('a-detail');
+  }
+}
+
+/* ============ 变体 B：地图概览 + 回忆流 ============ */
+function renderB(vp) {
+  vp.innerHTML = `
+  <div class="screen on" data-s="b-home">
+    <div class="b-top map" id="bMap">${markersHTML(Object.keys(PLACES))}
+      <div class="callout" id="bCallout"></div>
+    </div>
+    <div class="b-checkin" id="bCheckin">＋ 用当前位置打卡</div>
+    <div class="scroll">
+      <div class="b-feed-head">
+        <span class="t" id="bFeedTitle">最近的回忆</span>
+        <span class="clear" id="bClear">✕ 清除筛选</span>
+      </div>
+      <div class="b-feed-wrap" id="bFeed"></div>
+      <div style="text-align:center;font-size:11px;color:var(--ink-3);padding:0 0 16px">← 横滑浏览 · 点卡片看详情 →</div>
+    </div>
+  </div>
+  <div class="screen" data-s="b-detail">
+    <div class="navbar"><span class="back" data-nav="b-home">‹</span><span>回忆记录</span></div>
+    <div class="scroll" id="bDetBody"></div>
+  </div>`;
+
+  const callout = vp.querySelector('#bCallout');
+  vp.querySelectorAll('#bMap [data-marker]').forEach(m => {
+    m.onclick = e => {
+      e.stopPropagation();
+      const pid = m.dataset.marker, p = PLACES[pid];
+      callout.innerHTML = `<div class="co-name">${p.name}</div>
+        <div class="co-visits" style="margin-top:3px">均分 ${p.avg.toFixed(1)} · 去过 ${p.visits} 次</div>
+        <div class="co-btns"><div class="co-btn pri" data-open-place="${pid}">只看这里的回忆</div></div>`;
+      callout.classList.add('on');
+      callout.style.left = Math.min(78, Math.max(22, p.x)) + '%';
+      callout.style.top = Math.min(70, Math.max(30, p.y)) + '%';
+    };
+  });
+  vp.querySelector('#bMap').addEventListener('click', e => {
+    if (!e.target.closest('[data-marker], .callout')) callout.classList.remove('on');
+  });
+  vp.querySelector('#bCheckin').onclick = () => toast('打卡：以当前位置建记录（原型示意）');
+
+  const feed = vp.querySelector('#bFeed');
+  function drawFeed(filterPid) {
+    const list = filterPid ? recsOf(filterPid) : RECORDS;
+    feed.innerHTML = list.map(r => {
+      const p = PLACES[r.place];
+      const media = r.video
+        ? `<div class="ph-box bc-ph">▶ 视频 ${r.video}</div>`
+        : `<div class="ph-box bc-ph">${r.photos[0]}</div>`;
+      return `<div class="b-card" data-rec="${r.id}">${media}
+        <div class="bc-body">
+          <div class="bc-place">${avatar(r.author)}<span class="nm">${p.name}</span></div>
+          <div class="bc-text">${r.text}</div>
+          <div class="bc-foot"><span class="stars" style="font-size:11px">${STAR_TXT(r.stars)}</span>${visChip(r)}</div>
+        </div></div>`;
+    }).join('');
+    vp.querySelector('#bFeedTitle').textContent = filterPid ? `「${PLACES[filterPid].name}」的回忆` : '最近的回忆';
+    vp.querySelector('#bClear').style.display = filterPid ? 'inline' : 'none';
+  }
+  drawFeed(null);
+  vp.querySelector('#bClear').onclick = () => { drawFeed(null); callout.classList.remove('on'); };
+  vp.addEventListener('click', e => {
+    const op = e.target.closest('[data-open-place]');
+    if (op) { drawFeed(op.dataset.openPlace); callout.classList.remove('on'); return; }
+    const card = e.target.closest('.b-card[data-rec]');
+    if (card) {
+      const r = RECORDS.find(x => x.id === card.dataset.rec), p = PLACES[r.place];
+      vp.querySelector('#bDetBody').innerHTML = `
+        <div class="feed-card">
+          <div class="fc-head">${avatar(r.author, true)}
+            <div><div class="fc-name">${r.author}</div><div class="fc-time">${r.date}${r.parts.length ? ' · 和 ' + r.parts.join('、') : ''}</div></div>
+            <span class="fc-vis">${visChip(r)}</span>
+          </div>
+          <div class="fc-text">${r.text}</div>
+          ${r.voice ? `<div class="fc-voice">${voiceBubble(r)}</div>` : ''}
+          ${r.video
+            ? `<div class="video-box ph-box" style="margin:12px 0 0"><div class="play">▶</div><span class="vd">视频 ${r.video} · mp4</span></div>`
+            : `<div class="grid9" style="margin-top:12px">${r.photos.map(n => `<div class="ph-box">${n}</div>`).join('')}</div>`}
+          <div class="fc-foot">
+            <span class="fc-place-link">📍 ${p.name}（${p.type}）· 均分 ${p.avg.toFixed(1)}</span>
+            <span class="stars">${STAR_TXT(r.stars)} ${tierChip(r.tier)}</span>
+          </div>
+          <div class="fc-foot" style="border-top:none;padding-top:0">
+            <span style="font-size:11px;color:var(--ink-3)">点地点名可跳回该地点全部记录（原型示意）</span>
+          </div>
+        </div>`;
+      nav('b-detail');
+    }
+  });
+}
+
+/* ============ 变体 C：足迹列表 · 地图为辅 ============ */
+function renderC(vp) {
+  vp.innerHTML = `
+  <div class="screen on" data-s="c-home">
+    <div class="navbar"><span style="font-weight:700">我们的足迹</span><span class="sub" style="margin-left:auto">${RECORDS.length} 条回忆 · ${Object.keys(PLACES).length} 个地点</span></div>
+    <div class="seg"><div class="on" data-seg="list">足迹列表</div><div data-seg="map">地图</div></div>
+    <div class="scroll" id="cList"></div>
+    <div class="scroll map" id="cMap" style="display:none">
+      ${markersHTML(Object.keys(PLACES))}
+      <div class="callout" id="cCallout"></div>
+    </div>
+  </div>
+  <div class="screen" data-s="c-place">
+    <div class="navbar"><span class="back" data-nav="c-home">‹</span><span id="cPlTitle"></span></div>
+    <div class="scroll" id="cPlBody"></div>
+  </div>
+  <div class="screen" data-s="c-detail">
+    <div class="navbar"><span class="back" data-nav="c-place">‹</span><span>回忆记录</span></div>
+    <div class="scroll" id="cDetBody"></div>
+  </div>`;
+
+  const list = vp.querySelector('#cList');
+  list.innerHTML = Object.keys(PLACES).map(pid => {
+    const p = PLACES[pid], rs = recsOf(pid);
+    const covers = rs.flatMap(r => r.video ? [`▶ ${r.video}`] : r.photos).slice(0, 3);
+    while (covers.length < 3) covers.push('');
+    return `<div class="place-card" data-place-card="${pid}">
+      <div class="pc-mosaic">
+        <div class="ph-box pc-main">${p.cover}</div>
+        ${covers.slice(1).map(c => `<div class="ph-box">${c}</div>`).join('')}
+      </div>
+      <div class="pc-body">
+        <div class="pc-l1"><span class="pc-name">${p.name}</span><span class="chip">${p.type}</span></div>
+        <div class="pc-l2">
+          <span class="stars" style="font-size:11px">${STAR_TXT(Math.round(p.avg))} ${p.avg.toFixed(1)}</span>
+          <span>去过 ${p.visits} 次</span>
+          <span>· ${rs.length} 条回忆</span>
+          <span style="margin-left:auto">${tierChip(tierOfAvg(p.avg))}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('') + `<div style="height:10px"></div>`;
+
+  const callout = vp.querySelector('#cCallout');
+  vp.querySelectorAll('#cMap [data-marker]').forEach(m => {
+    m.onclick = e => {
+      e.stopPropagation();
+      const pid = m.dataset.marker;
+      callout.innerHTML = calloutHTML(pid, true);
+      callout.classList.add('on');
+      callout.style.left = Math.min(78, Math.max(22, PLACES[pid].x)) + '%';
+      callout.style.top = PLACES[pid].y + '%';
+    };
+  });
+  vp.querySelector('#cMap').addEventListener('click', e => {
+    if (!e.target.closest('[data-marker], .callout')) callout.classList.remove('on');
+  });
+  vp.querySelectorAll('[data-seg]').forEach(s => {
+    s.onclick = () => {
+      vp.querySelectorAll('[data-seg]').forEach(x => x.classList.toggle('on', x === s));
+      const isMap = s.dataset.seg === 'map';
+      vp.querySelector('#cList').style.display = isMap ? 'none' : 'block';
+      vp.querySelector('#cMap').style.display = isMap ? 'block' : 'none';
+      callout.classList.remove('on');
+    };
+  });
+
+  function openPlace(pid) {
+    const p = PLACES[pid], rs = recsOf(pid);
+    vp.querySelector('#cPlTitle').innerHTML = `${p.name} <span class="chip">${p.type}</span>`;
+    vp.querySelector('#cPlBody').innerHTML = `
+      <div class="c-stat-bar">
+        <div><b>${p.avg.toFixed(1)}</b>综合评分</div>
+        <div><b>${p.visits}</b>到访次数</div>
+        <div><b>${rs.length}</b>回忆记录</div>
+        <div><b>${tierOfAvg(p.avg) === 'good' ? '宝藏' : tierOfAvg(p.avg) === 'mid' ? '还行' : '踩雷'}</b>整体档位</div>
+      </div>
+      <div style="padding:0 16px">${rs.map(recRow).join('')}</div>
+      <div style="height:20px"></div>`;
+    vp._cPlace = pid;
+    nav('c-place');
+  }
+  function openDetail(rid) {
+    const r = RECORDS.find(x => x.id === rid), p = PLACES[r.place];
+    const n = r.photos ? r.photos.length : 1;
+    vp._cAlbum = 0;
+    const body = vp.querySelector('#cDetBody');
+    function draw() {
+      const label = r.video ? '视频' : r.photos[vp._cAlbum];
+      body.innerHTML = `
+        <div class="album-hero" id="albumHero">
+          <div class="ph-box">${label}${r.video ? ` · ${r.video} · mp4` : ''}</div>
+          <span class="swipe-hint">轻点左右翻页 ↻</span>
+          <span class="counter">${r.video ? '视频' : (vp._cAlbum + 1) + ' / ' + n}</span>
+        </div>
+        <div class="album-info">
+          <div class="al-l1"><span class="al-place">${p.name}</span><span class="al-avg">${p.type} · 均分 ${p.avg.toFixed(1)} · ${p.visits} 次</span></div>
+          <div class="al-stars">${STAR_TXT(r.stars)} ${tierChip(r.tier)}</div>
+          <div class="d-meta-row" style="margin-top:10px">
+            ${avatar(r.author, true)}<span style="font-size:12.5px"><b>${r.author}</b></span>
+            ${r.parts.length ? `<span style="font-size:12.5px;color:var(--ink-2)">和 ${r.parts.join('、')}</span>` : ''}
+            <span style="margin-left:auto">${visChip(r)}</span>
+          </div>
+        </div>
+        <div class="d-text" style="font-size:14px">${r.text}</div>
+        ${r.voice ? `<div style="padding:10px 16px 0">${voiceBubble(r)}</div>` : ''}
+        <div style="padding:12px 16px;font-size:11px;color:var(--ink-3)">${r.date}</div>`;
+      vp.querySelector('#albumHero').onclick = () => { vp._cAlbum = (vp._cAlbum + 1) % n; draw(); };
+    }
+    draw();
+    nav('c-detail');
+  }
+
+  vp.addEventListener('click', e => {
+    const ck = e.target.closest('[data-checkin]');
+    if (ck) { toast(`在「${PLACES[ck.dataset.checkin].name}」打卡：进入发布页（原型示意）`); return; }
+    const op = e.target.closest('[data-open-place]');
+    if (op) { openPlace(op.dataset.openPlace); return; }
+    const pc = e.target.closest('[data-place-card]');
+    if (pc) { openPlace(pc.dataset.placeCard); return; }
+    const rr = e.target.closest('.rec-row[data-rec]');
+    if (rr && rr.closest('#cPlBody')) { openDetail(rr.dataset.rec); return; }
+  });
+}
+
+/* ============ 屏幕导航 & 变体切换 ============ */
+const viewport = document.getElementById('viewport');
+function nav(screen) {
+  viewport.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.dataset.s === screen));
+  viewport.querySelectorAll('.sheet-mask.on, .sheet.on').forEach(x => x.classList.remove('on'));
+  viewport.querySelectorAll('.callout.on').forEach(x => x.classList.remove('on'));
+}
+viewport.addEventListener('click', e => {
+  const b = e.target.closest('[data-nav]');
+  if (b) nav(b.dataset.nav);
+});
+viewport.addEventListener('click', e => {
+  const v = e.target.closest('.voice');
+  if (v) toast('播放语音（原型示意）');
+});
+
+let cur = 0;
+function setVariant(i) {
+  cur = (i + VARIANTS.length) % VARIANTS.length;
+  const v = VARIANTS[cur];
+  viewport.innerHTML = '';
+  v.render(viewport);
+  document.getElementById('vLabel').textContent = `${v.key} · ${v.name}`;
+  document.getElementById('diffNote').innerHTML = v.note;
+  try {
+    const u = new URL(location.href); u.searchParams.set('variant', v.key);
+    history.replaceState(null, '', u);
+  } catch (_) {}
+}
+document.getElementById('prevBtn').onclick = () => setVariant(cur - 1);
+document.getElementById('nextBtn').onclick = () => setVariant(cur + 1);
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') setVariant(cur - 1);
+  if (e.key === 'ArrowRight') setVariant(cur + 1);
+});
+const qv = new URLSearchParams(location.search).get('variant');
+const init = Math.max(0, VARIANTS.findIndex(v => v.key === qv));
+setVariant(init === -1 ? 0 : init);
+</script>
+</body>
+</html>
