@@ -1,0 +1,9 @@
+<view class="container">
+  <view class="title">Hello World 🏠</view>
+  <view class="subtitle">家庭生活记录小程序已就绪</view>
+
+  <button class="test-btn" type="primary" bindtap="onTestCloud" disabled="{{testing}}">
+    测试云函数连通
+  </button>
+  <view wx:if="{{cloudResult}}" class="cloud-result">{{cloudResult}}</view>
+</view>

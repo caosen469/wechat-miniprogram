@@ -1,0 +1,31 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 48rpx;
+}
+
+.title {
+  font-size: 48rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.subtitle {
+  color: #999999;
+  margin-bottom: 96rpx;
+}
+
+.test-btn {
+  width: 100%;
+}
+
+.cloud-result {
+  margin-top: 32rpx;
+  padding: 24rpx;
+  background-color: #ffffff;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: #666666;
+  word-break: break-all;
+}

@@ -1,0 +1,4 @@
+<view class="container">
+  <view class="title">我的</view>
+  <view class="subtitle">成员信息与设置（阶段 2 起实现）</view>
+</view>
