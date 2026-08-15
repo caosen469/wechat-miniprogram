@@ -71,6 +71,27 @@ function validateMedia (media) {
   return null
 }
 
+// 语音复核（spec 4.5）：null/undefined 或 {fileID, duration}（0 < duration ≤ 60 秒）。
+// 返回落库值（null 或规整后的对象）；非法返回错误文案
+function validateAudio (audio) {
+  if (audio === undefined || audio === null) {
+    return { value: null }
+  }
+  if (typeof audio !== 'object' || Array.isArray(audio)) {
+    return { error: '语音格式不正确' }
+  }
+  if (typeof audio.fileID !== 'string' || !audio.fileID) {
+    return { error: '语音缺少有效文件' }
+  }
+  if (typeof audio.duration !== 'number' || !(audio.duration > 0)) {
+    return { error: '语音缺少有效时长' }
+  }
+  if (audio.duration > MEDIA_LIMITS.VIDEO_DURATION_MAX) {
+    return { error: `语音不能超过 ${MEDIA_LIMITS.VIDEO_DURATION_MAX} 秒` }
+  }
+  return { value: { fileID: audio.fileID, duration: audio.duration } }
+}
+
 function validateNewPlace (newPlace) {
   if (!newPlace || typeof newPlace !== 'object') {
     return '缺少新地点信息'
@@ -173,9 +194,12 @@ exports.main = async (event) => {
   const happened = parseHappenedAt(event.happenedAt)
   if (happened.error) return err('VALIDATION_FAILED', happened.error)
 
-  // ---- 校验：媒体 / 文字 / 星级（服务端复核，spec 5.1）----
+  // ---- 校验：媒体 / 文字 / 星级 / 语音（服务端复核，spec 5.1）----
   const mediaError = validateMedia(event.media)
   if (mediaError) return err('VALIDATION_FAILED', mediaError)
+
+  const audio = validateAudio(event.audio)
+  if (audio.error) return err('VALIDATION_FAILED', audio.error)
 
   const text = typeof event.text === 'string' ? event.text.trim() : ''
   if (text.length > TEXT_MAX) {
@@ -250,7 +274,7 @@ exports.main = async (event) => {
     participantIds,
     media: event.media,
     text,
-    audio: null,
+    audio: audio.value,
     rating,
     visibility,
     ...(visibility === 'pair' ? { pairIds } : {}),

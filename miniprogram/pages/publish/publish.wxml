@@ -1,6 +1,15 @@
-<!-- 发布页·简化版（T8 变体 C「拍摄优先」的简化实现，T15）：
-     九宫格媒体打头 → 吐槽 → 地点内联 → 星级内联 → 底栏发布。 -->
+<!-- 发布页·变体 C「拍摄优先」（T15 + T18 + T20）：
+     九宫格媒体打头 → 吐槽 → 地点内联 → 星级 → 语音条 → 折叠区 → 底栏发布；
+     带 recordId 进入为编辑模式（预填后走 updateRecord，地点只读）。 -->
 <view class="publish">
+  <!-- 编辑模式加载中/失败：收起表单，防止预填覆盖用户输入、防止默认值保存 -->
+  <view wx:if="{{editLoading}}" class="edit-loading">读取这条回忆…</view>
+  <view wx:elif="{{editFailed}}" class="edit-loading">
+    <view>内容加载失败</view>
+    <button class="retry-btn" size="mini" type="primary" bindtap="onRetryEdit">重试</button>
+  </view>
+
+  <block wx:else>
   <!-- 1. 九宫格媒体 -->
   <view class="grid">
     <view wx:for="{{media}}" wx:key="path" class="tile">
@@ -37,15 +46,16 @@
     <view class="row-grow">
       <view wx:if="{{place}}" class="place-name">{{place.name}}</view>
       <view wx:else class="place-placeholder">选择地点…</view>
-      <view wx:if="{{place}}" class="row-meta">{{place.typeLabel}}{{place.poiId ? '' : ' · 不参与自动归并'}}</view>
+      <view wx:if="{{place}}" class="row-meta">{{place.typeLabel}}{{!editRecordId && !place.poiId ? ' · 不参与自动归并' : ''}}</view>
+      <view wx:elif="{{editRecordId}}" class="row-meta">编辑时地点不可更改</view>
       <view wx:else class="row-meta">POI 搜索 / 当前位置 / 手动输入</view>
     </view>
-    <view wx:if="{{place}}" class="place-clear" catchtap="onClearPlace">✕</view>
-    <view wx:else class="chev">›</view>
+    <view wx:if="{{place && !editRecordId}}" class="place-clear" catchtap="onClearPlace">✕</view>
+    <view wx:elif="{{!place}}" class="chev">›</view>
   </view>
 
   <!-- 4. 星级内联（必填） -->
-  <view class="row row-last">
+  <view class="row">
     <view class="row-ic">⭐</view>
     <view class="stars">
       <view
@@ -58,6 +68,28 @@
     </view>
     <view class="row-grow" />
     <view wx:if="{{grade}}" class="grade-badge">{{grade}}</view>
+  </view>
+
+  <!-- 5. 语音条内联（T20，spec 6.5：≤60s 自动停，可试听/重录/删） -->
+  <view class="row row-last">
+    <view class="row-ic">🎙</view>
+    <view wx:if="{{recording}}" class="row-grow rec-live" bindtap="onRecordStop">
+      <text class="rec-dot">●</text> 录音中 {{recordSecs}}s / 60s（点击停止）
+    </view>
+    <block wx:elif="{{audio}}">
+      <view class="audio-bar" bindtap="onAudioPreview">
+        <view class="audio-play">{{audioPlaying ? '⏸' : '▶'}}</view>
+        <view class="audio-wave">
+          <view class="wave-bar {{audioPlaying ? 'on' : ''}}" wx:for="{{[12, 22, 16, 28, 20, 30, 14, 26, 18]}}" wx:key="*this" style="height: {{item}}rpx" />
+        </view>
+        <view class="audio-dur">{{audio.duration}}s</view>
+      </view>
+      <view class="audio-op" catchtap="onAudioRerecord">重录</view>
+      <view class="audio-op audio-op-del" catchtap="onAudioDelete">删除</view>
+    </block>
+    <view wx:else class="row-grow audio-hint" bindtap="onRecordStart">
+      说点什么？点此录一段（最长 60s，可不录）
+    </view>
   </view>
 
   <!-- 5. 折叠区「＋更多」默认收起（spec 6.5） -->
@@ -106,10 +138,11 @@
       <view class="vis-entry-label">{{visibilityIcon}} {{visibilityLabel}}</view>
       <view class="vis-entry-sub">可见范围</view>
     </view>
-    <button class="publish-btn" type="primary" bindtap="onPublish" disabled="{{submitting}}">
-      发布
+    <button class="publish-btn" type="primary" bindtap="onPublish" disabled="{{submitting || editLoading || editFailed}}">
+      {{editRecordId ? '保存' : '发布'}}
     </button>
   </view>
+  </block>
 </view>
 
 <!-- 选点 sheet：POI 选定后选类型 / 手动新地点 -->

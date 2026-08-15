@@ -1,7 +1,8 @@
 // updateRecord —— 编辑记录（spec 5.1）：能看见就能编辑（公共 visibility.js：
 // spec 4.6 三档 + 4.2 退出成员记录不可见）。
-// 可改字段：text / rating / visibility / participantIds / happenedAt / media，只改传入的。
+// 可改字段：text / rating / visibility / participantIds / happenedAt / media / audio，只改传入的。
 // visibility 改 pair 时以「改动时」的 circles.pairIds 重固化快照；从 pair 改走则清除快照。
+// 被替换/删除的旧语音文件从云存储删除（与 media 孤儿清理同一规则）。
 const cloud = require('wx-server-sdk')
 const { isVisible } = require('./visibility')
 
@@ -45,6 +46,19 @@ function validateMedia (media) {
     }
   }
   return null
+}
+
+// 语音复核（spec 4.5）：null（删除语音）或 {fileID, duration}（0 < duration ≤ 60 秒）。
+// 与 publishRecord 的 validateAudio 同一规则，返回落库值或错误文案
+function validateAudio (audio) {
+  if (audio === null) return { value: null }
+  if (typeof audio !== 'object' || Array.isArray(audio)) return { error: '语音格式不正确' }
+  if (typeof audio.fileID !== 'string' || !audio.fileID) return { error: '语音缺少有效文件' }
+  if (typeof audio.duration !== 'number' || !(audio.duration > 0)) return { error: '语音缺少有效时长' }
+  if (audio.duration > MEDIA_LIMITS.VIDEO_DURATION_MAX) {
+    return { error: `语音不能超过 ${MEDIA_LIMITS.VIDEO_DURATION_MAX} 秒` }
+  }
+  return { value: { fileID: audio.fileID, duration: audio.duration } }
 }
 
 function validateParticipantIds (participantIds, activeOpenids, authorOpenid) {
@@ -124,6 +138,12 @@ exports.main = async (event) => {
     patch.media = event.media
   }
 
+  if (event.audio !== undefined) {
+    const audio = validateAudio(event.audio)
+    if (audio.error) return err('VALIDATION_FAILED', audio.error)
+    patch.audio = audio.value
+  }
+
   if (event.visibility !== undefined) {
     if (!VISIBILITIES.includes(event.visibility)) {
       return err('VALIDATION_FAILED', '可见范围只能是家庭圈 / 仅我俩 / 仅自己')
@@ -168,17 +188,23 @@ exports.main = async (event) => {
   patch.updatedAt = new Date()
   await db.collection('records').doc(recordId).update({ data: patch })
 
-  // ---- 被替换掉的媒体文件从云存储删除（否则成永久孤儿文件）----
+  // ---- 被替换掉的媒体/语音文件从云存储删除（否则成永久孤儿文件）----
+  const orphanFiles = []
   if (event.media !== undefined) {
     const kept = new Set(event.media.map(m => m.fileID))
     const orphans = (record.media || [])
       .map(m => m && m.fileID)
       .filter(id => id && !kept.has(id))
-    if (orphans.length > 0) {
-      try {
-        await cloud.deleteFile({ fileList: orphans })
-      } catch (e) { /* 已删或权限问题，不阻断 */ }
-    }
+    orphanFiles.push(...orphans)
+  }
+  if (event.audio !== undefined && record.audio && record.audio.fileID &&
+      !(patch.audio && patch.audio.fileID === record.audio.fileID)) {
+    orphanFiles.push(record.audio.fileID)
+  }
+  if (orphanFiles.length > 0) {
+    try {
+      await cloud.deleteFile({ fileList: orphanFiles })
+    } catch (e) { /* 已删或权限问题，不阻断 */ }
   }
 
   // ---- 媒体/到访时间变化会改变「最新有图记录」：顺带刷新地点封面（spec 4.4）----

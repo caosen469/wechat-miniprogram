@@ -7,30 +7,34 @@
   </block>
 
   <block wx:else>
-    <!-- 大图翻页（简版：横滑切媒体） -->
-    <swiper class="media-swiper" indicator-dots circular>
-      <swiper-item wx:for="{{media}}" wx:key="fileID">
-        <video
-          wx:if="{{item.isVideo && item.src}}"
-          class="media"
-          src="{{item.src}}"
-          object-fit="contain"
-          controls
-        />
-        <!-- 视频临时链接获取失败：给占位而非空裂图帧，可点击重试 -->
-        <view wx:elif="{{item.isVideo}}" class="media-fallback" bindtap="onRetry">
-          视频加载失败，点击重试
-        </view>
-        <image
-          wx:else
-          class="media"
-          src="{{item.src}}"
-          mode="aspectFill"
-          data-src="{{item.src}}"
-          bindtap="onPreviewImage"
-        />
-      </swiper-item>
-    </swiper>
+    <!-- 大图横滑翻页为主体（spec 6.4：图与视频混排翻页） -->
+    <view class="media-wrap">
+      <swiper class="media-swiper" indicator-dots circular>
+        <swiper-item wx:for="{{media}}" wx:key="fileID">
+          <video
+            wx:if="{{item.isVideo && item.src}}"
+            class="media"
+            src="{{item.src}}"
+            object-fit="contain"
+            controls
+          />
+          <!-- 视频临时链接获取失败：给占位而非空裂图帧，可点击重试 -->
+          <view wx:elif="{{item.isVideo}}" class="media-fallback" bindtap="onRetry">
+            视频加载失败，点击重试
+          </view>
+          <image
+            wx:else
+            class="media"
+            src="{{item.src}}"
+            mode="aspectFill"
+            data-src="{{item.src}}"
+            bindtap="onPreviewImage"
+          />
+        </swiper-item>
+      </swiper>
+      <!-- 右上角「···」：编辑 / 删除（spec 6.4，避开微信胶囊按钮放其下方） -->
+      <view class="more-btn" bindtap="onTapMore">···</view>
+    </view>
 
     <view class="body">
       <!-- 固定地点上下文（spec 6.4） -->
@@ -45,9 +49,25 @@
       <view class="stars-row">
         <text class="stars">{{record.stars}}</text>
         <text class="grade">{{record.grade}}</text>
+        <!-- 「仅我俩」标识（spec 6.4：圈内可见者才看得到这条记录，自然也看得到标识） -->
+        <text wx:if="{{record.visibility === 'pair'}}" class="pair-badge">💞 仅我俩</text>
       </view>
 
       <view class="text" wx:if="{{record.text}}">{{record.text}}</view>
+
+      <!-- 语音条（spec 6.4：播放三角 + 波形 + 时长，点击播放/停止） -->
+      <view wx:if="{{audio}}" class="audio-bar" bindtap="onAudioToggle">
+        <view class="audio-play">{{audioPlaying ? '⏸' : '▶'}}</view>
+        <view class="audio-wave">
+          <view
+            class="wave-bar {{audioPlaying ? 'on' : ''}}"
+            wx:for="{{[12, 22, 16, 28, 20, 30, 14, 26, 18]}}"
+            wx:key="*this"
+            style="height: {{item}}rpx"
+          />
+        </view>
+        <view class="audio-dur">{{audio.duration}}s</view>
+      </view>
 
       <view class="meta">
         <image
@@ -66,11 +86,6 @@
           <image class="avatar avatar-sm" src="{{item.avatarUrl}}" mode="aspectFill" />
           <text class="participant-name">{{item.nickname}}</text>
         </view>
-      </view>
-
-      <!-- 删除（T18：能看见就能删除；二次确认） -->
-      <view class="danger-zone">
-        <view class="delete-btn" bindtap="onDelete">删除这条记录</view>
       </view>
     </view>
   </block>

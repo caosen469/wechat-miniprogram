@@ -22,6 +22,28 @@
   background-color: #000000;
 }
 
+/* 右上角「···」（T20）：定位在微信胶囊下方，避开系统按钮 */
+.media-wrap {
+  position: relative;
+}
+
+.more-btn {
+  position: absolute;
+  top: 16rpx;
+  right: 24rpx;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 32rpx;
+  background-color: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 2rpx;
+}
+
 .media {
   width: 100%;
   height: 100%;
@@ -87,6 +109,56 @@
   color: #8c6239;
 }
 
+/* 「仅我俩」标识（T20，spec 6.4） */
+.pair-badge {
+  font-size: 22rpx;
+  color: #c0507a;
+  background-color: rgba(192, 80, 122, 0.1);
+  border-radius: 999rpx;
+  padding: 4rpx 16rpx;
+}
+
+/* ---- 语音条（T20，spec 6.4：播放三角 + 波形 + 时长） ---- */
+.audio-bar {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background-color: #f7f3ec;
+  border-radius: 999rpx;
+  padding: 16rpx 24rpx;
+}
+
+.audio-play {
+  font-size: 28rpx;
+  color: #8c6239;
+  width: 36rpx;
+  text-align: center;
+}
+
+.audio-wave {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex: 1;
+  overflow: hidden;
+}
+
+.wave-bar {
+  width: 6rpx;
+  border-radius: 3rpx;
+  background-color: #d8c9b8;
+}
+
+.wave-bar.on {
+  background-color: #8c6239;
+}
+
+.audio-dur {
+  font-size: 24rpx;
+  color: #999999;
+  flex-shrink: 0;
+}
+
 .text {
   font-size: 30rpx;
   line-height: 1.6;
@@ -130,18 +202,4 @@
 .participant-name {
   font-size: 24rpx;
   color: #666666;
-}
-
-/* ---- 删除 ---- */
-.danger-zone {
-  margin-top: 40rpx;
-  padding-top: 24rpx;
-  border-top: 2rpx solid #f4f4f2;
-}
-
-.delete-btn {
-  text-align: center;
-  color: #e64340;
-  font-size: 28rpx;
-  padding: 16rpx 0;
 }

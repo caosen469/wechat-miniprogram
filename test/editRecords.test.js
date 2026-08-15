@@ -197,6 +197,59 @@ describe('updateRecord（能看见就能编辑）', () => {
     expect(result.code).toBe('VALIDATION_FAILED')
     expect(getRecord().visibility).toBe('family')
   })
+
+  test('改语音：合法 {fileID, duration} 落库，旧语音文件从云存储删除（孤儿清理）', async () => {
+    reset('openid-a', { records: [seedRecord('r-1', {
+      audio: { fileID: 'cloud://old-voice.aac', duration: 20 }
+    })] })
+    const result = await updateRecord.main({
+      recordId: 'r-1',
+      audio: { fileID: 'cloud://new-voice.aac', duration: 45 }
+    })
+    expect(result.code).toBeUndefined()
+    expect(getRecord().audio).toEqual({ fileID: 'cloud://new-voice.aac', duration: 45 })
+    expect(sdk.__state.deletedFiles).toEqual(['cloud://old-voice.aac'])
+  })
+
+  test('删语音：audio 传 null 清空，旧语音文件一并删除', async () => {
+    reset('openid-a', { records: [seedRecord('r-1', {
+      audio: { fileID: 'cloud://old-voice.aac', duration: 20 }
+    })] })
+    const result = await updateRecord.main({ recordId: 'r-1', audio: null })
+    expect(result.code).toBeUndefined()
+    expect(getRecord().audio).toBeNull()
+    expect(sdk.__state.deletedFiles).toEqual(['cloud://old-voice.aac'])
+  })
+
+  test('改语音同时改媒体：新旧孤儿文件一起清理', async () => {
+    reset('openid-a', { records: [seedRecord('r-1', {
+      media: [{ fileID: 'cloud://old.jpg', type: 'image' }],
+      audio: { fileID: 'cloud://old-voice.aac', duration: 20 }
+    })] })
+    const result = await updateRecord.main({
+      recordId: 'r-1',
+      media: [{ fileID: 'cloud://new.jpg', type: 'image' }],
+      audio: { fileID: 'cloud://new-voice.aac', duration: 10 }
+    })
+    expect(result.code).toBeUndefined()
+    expect(sdk.__state.deletedFiles.sort()).toEqual(
+      ['cloud://old.jpg', 'cloud://old-voice.aac'].sort()
+    )
+  })
+
+  test.each([
+    ['时长超过 60s', { audio: { fileID: 'cloud://v.aac', duration: 61 } }],
+    ['时长为 0', { audio: { fileID: 'cloud://v.aac', duration: 0 } }],
+    ['缺 fileID', { audio: { duration: 30 } }],
+    ['非对象', { audio: 'cloud://v.aac' }]
+  ])('改语音 %s：VALIDATION_FAILED 且原值不动', async (_name, patch) => {
+    reset('openid-a', { records: [seedRecord('r-1', {
+      audio: { fileID: 'cloud://old-voice.aac', duration: 20 }
+    })] })
+    const result = await updateRecord.main({ recordId: 'r-1', ...patch })
+    expect(result.code).toBe('VALIDATION_FAILED')
+    expect(getRecord().audio).toEqual({ fileID: 'cloud://old-voice.aac', duration: 20 })
+  })
 })
 
 describe('deleteRecord（能看见就能删除 + 媒体文件清理）', () => {

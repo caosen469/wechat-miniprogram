@@ -386,4 +386,41 @@ describe('publishRecord（发布记录）', () => {
       expect(result.code).toBe('VALIDATION_FAILED')
     })
   })
+
+  describe('语音（T20，spec 4.5 audio：0–1 段 ≤60s）', () => {
+    test('带语音发布：audio 落库为 {fileID, duration}', async () => {
+      const result = await publish({ audio: { fileID: 'cloud://voice.aac', duration: 32 } })
+      expect(result.code).toBeUndefined()
+      expect(sdk.__state.collections.records[0].audio).toEqual({
+        fileID: 'cloud://voice.aac', duration: 32
+      })
+    })
+
+    test('不传语音：audio 落 null（默认无语音）', async () => {
+      const result = await publish()
+      expect(result.code).toBeUndefined()
+      expect(sdk.__state.collections.records[0].audio).toBeNull()
+    })
+
+    test('显式传 null：等同无语音', async () => {
+      const result = await publish({ audio: null })
+      expect(result.code).toBeUndefined()
+      expect(sdk.__state.collections.records[0].audio).toBeNull()
+    })
+
+    test.each([
+      ['时长超过 60s', { audio: { fileID: 'cloud://voice.aac', duration: 61 } }],
+      ['时长为 0', { audio: { fileID: 'cloud://voice.aac', duration: 0 } }],
+      ['时长为负', { audio: { fileID: 'cloud://voice.aac', duration: -5 } }],
+      ['时长缺失', { audio: { fileID: 'cloud://voice.aac' } }],
+      ['时长非数字', { audio: { fileID: 'cloud://voice.aac', duration: '32' } }],
+      ['缺 fileID', { audio: { duration: 32 } }],
+      ['fileID 非字符串', { audio: { fileID: 123, duration: 32 } }],
+      ['audio 非对象（字符串）', { audio: 'cloud://voice.aac' }]
+    ])('%s：VALIDATION_FAILED 且不落库', async (_name, event) => {
+      const result = await publish(event)
+      expect(result.code).toBe('VALIDATION_FAILED')
+      expect(sdk.__state.collections.records).toHaveLength(0)
+    })
+  })
 })

@@ -177,6 +177,89 @@
   padding: 4rpx 16rpx;
 }
 
+/* ---- 语音条内联（T20） ---- */
+.audio-hint {
+  font-size: 30rpx;
+  color: #999999;
+}
+
+.rec-live {
+  font-size: 28rpx;
+  color: #e64340;
+}
+
+.rec-dot {
+  animation: rec-blink 1s infinite;
+}
+
+@keyframes rec-blink {
+  50% { opacity: 0.2; }
+}
+
+.audio-bar {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background-color: #ffffff;
+  border-radius: 999rpx;
+  padding: 12rpx 24rpx;
+  flex: 1;
+  min-width: 0;
+}
+
+.audio-play {
+  font-size: 28rpx;
+  color: #8c6239;
+  width: 36rpx;
+  text-align: center;
+}
+
+.audio-wave {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex: 1;
+  overflow: hidden;
+}
+
+.wave-bar {
+  width: 6rpx;
+  border-radius: 3rpx;
+  background-color: #d8c9b8;
+}
+
+.wave-bar.on {
+  background-color: #8c6239;
+}
+
+.audio-dur {
+  font-size: 24rpx;
+  color: #999999;
+  flex-shrink: 0;
+}
+
+.audio-op {
+  font-size: 26rpx;
+  color: #8c6239;
+  padding: 8rpx;
+  flex-shrink: 0;
+}
+
+.audio-op-del {
+  color: #bbbbbb;
+}
+
+.edit-loading {
+  text-align: center;
+  font-size: 26rpx;
+  color: #999999;
+  padding: 16rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+}
+
 /* ---- 折叠区「＋更多」 ---- */
 .more-toggle {
   margin-top: 24rpx;
