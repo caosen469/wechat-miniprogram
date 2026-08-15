@@ -224,7 +224,7 @@ describe('deleteRecord（能看见就能删除 + 媒体文件清理）', () => {
     )
   })
 
-  test('删后刷新地点封面：回落到剩余记录的首图，无剩余记录则清空', async () => {
+  test('删后刷新地点封面：回落到剩余记录的首图（真机反馈：还有剩余打卡就不删地点）', async () => {
     reset('openid-a', { records: [
       seedRecord('r-1', { happenedAt: new Date('2026-08-12T12:00:00+08:00') }),
       seedRecord('r-2', {
@@ -234,12 +234,14 @@ describe('deleteRecord（能看见就能删除 + 媒体文件清理）', () => {
     ] })
     const result = await deleteRecord.main({ recordId: 'r-1' })
     expect(result.code).toBeUndefined()
+    // 剩余 r-2：地点保留，封面跟到剩余最新有图记录
+    expect(sdk.__state.collections.places).toHaveLength(1)
     expect(sdk.__state.collections.places[0].coverFileID).toBe('cloud://r2-1.jpg')
 
-    // 再删最后一条：封面清空
+    // 再删最后一条：地点已无任何记录，places 文档一并删除
     const last = await deleteRecord.main({ recordId: 'r-2' })
     expect(last.code).toBeUndefined()
-    expect(sdk.__state.collections.places[0].coverFileID).toBeNull()
+    expect(sdk.__state.collections.places).toHaveLength(0)
   })
 
   test('删最新的无图记录：封面保留自更早的有图记录（不被清掉）', async () => {

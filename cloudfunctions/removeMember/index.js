@@ -53,5 +53,17 @@ exports.main = async (event) => {
     data: { status: 'removed', leftAt: new Date() }
   })
 
+  // 移除的若是另一半：清空 circles.pairIds，设置页不再显示旧搭档；
+  // 旧 pair 记录保留创建时快照，不受影响（spec 4.5）
+  try {
+    const circleRes = await db.collection('circles').limit(1).get()
+    const circle = circleRes.data[0]
+    if (circle && (circle.pairIds || []).includes(member.openid)) {
+      await db.collection('circles').doc(circle._id).update({
+        data: { pairIds: [] }
+      })
+    }
+  } catch (e) { /* circles 异常不阻断移除本身 */ }
+
   return {}
 }

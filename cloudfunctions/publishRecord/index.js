@@ -187,7 +187,7 @@ exports.main = async (event) => {
     return err('VALIDATION_FAILED', '请打 1–5 星评分')
   }
 
-  // ---- 地点解析：placeId 直用；newPlace 按 poiId 归并（poiId=null 手动地点每次新建）----
+  // ---- 地点解析：placeId 直用；newPlace 先按 poiId 归并、再按同名归并 ----
   await ensureCollection('places')
   await ensureCollection('records')
   let place = null
@@ -202,21 +202,31 @@ exports.main = async (event) => {
     const placeError = validateNewPlace(event.newPlace)
     if (placeError) return err('VALIDATION_FAILED', placeError)
 
+    const name = event.newPlace.name.trim()
     const poiId = typeof event.newPlace.poiId === 'string' && event.newPlace.poiId
       ? event.newPlace.poiId
       : null
+    // 归并键 1（spec 4.4）：同 poiId 视为同店，类型继承首打卡选定不覆盖
     if (poiId) {
-      // 同 poiId 视为同店，归并到已有地点（类型继承首打卡选定，不覆盖，spec 4.4）
       const existed = await db.collection('places').where({ poiId }).get()
       if (existed.data.length > 0) {
         place = existed.data[0]
+      }
+    }
+    // 归并键 2（2026-08-15 真机反馈）：poiId 未命中（手动地点 poiId=null，
+    // 或 POI id 变了）时按同名精确归并——「清华大学」打三次卡合为一个地点。
+    // 替代原 ADR 0001「手动地点不参与自动归并」的约定
+    if (!place) {
+      const byName = await db.collection('places').where({ name }).get()
+      if (byName.data.length > 0) {
+        place = byName.data[0]
       }
     }
     if (!place) {
       const { latitude, longitude } = event.newPlace.location || {}
       const newDoc = {
         poiId,
-        name: event.newPlace.name.trim(),
+        name,
         type: event.newPlace.type,
         location: (typeof latitude === 'number' && typeof longitude === 'number')
           ? new db.Geo.Point(longitude, latitude)

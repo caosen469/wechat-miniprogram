@@ -163,7 +163,7 @@
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `_id` | string | 自动 |
-| `poiId` | string \| null | 选点通道返回的 POI 唯一 id。**归并键**：非空时同 poiId 视为同店；null（手动新地点）不参与自动归并 |
+| `poiId` | string \| null | 选点通道返回的 POI 唯一 id。**归并键**：非空时同 poiId 视为同店；poiId 未命中（含 null 手动地点）时再按**同名精确归并**（2026-08-15 真机反馈调整，替代原「手动地点不归并」约定） |
 | `name` | string | |
 | `type` | string | `restaurant` \| `attraction` \| `accommodation` \| `other`。首打卡时选定，后续到访自动继承 |
 | `location` | geopoint | 经纬度 |
@@ -172,6 +172,7 @@
 | `createdAt` | datetime | |
 
 > **派生值不落库**：均分、到访次数、情绪档位分布每次由云函数从 records 聚合得出（量级小，无需缓存）。
+> **地点生命周期**：地点在旗下**最后一条记录**被删除时一并删除；还有剩余记录则保留（2026-08-15 真机反馈）。
 
 ### 4.5 `records` — 回忆记录
 

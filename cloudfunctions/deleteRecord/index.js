@@ -64,15 +64,21 @@ exports.main = async (event) => {
     } catch (e) { /* 已删或权限问题，不阻断 */ }
   }
 
-  // ---- 删文档 + 刷新地点封面（剩余记录中最新「有图」记录的首图，无则清空）----
+  // ---- 删文档 + 地点善后（真机反馈）----
+  // 还有剩余记录：保留地点、封面刷成剩余最新「有图」记录的首图；
+  // 一条不剩：places 文档一并删除（records 里没了就别留空壳）
   await db.collection('records').doc(recordId).remove()
   try {
     const rest = (await db.collection('records')
       .where({ placeId: record.placeId })
       .get()).data
-    await db.collection('places').doc(record.placeId).update({
-      data: { coverFileID: computeCover(rest) }
-    })
+    if (rest.length === 0) {
+      await db.collection('places').doc(record.placeId).remove()
+    } else {
+      await db.collection('places').doc(record.placeId).update({
+        data: { coverFileID: computeCover(rest) }
+      })
+    }
   } catch (e) { /* 地点可能已被并发删除，忽略 */ }
 
   return {}

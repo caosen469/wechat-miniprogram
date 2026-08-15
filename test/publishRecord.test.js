@@ -136,8 +136,8 @@ describe('publishRecord（发布记录）', () => {
     expect(sdk.__state.collections.records).toHaveLength(2)
   })
 
-  test('手动新地点（poiId=null）：不与任何 POI 地点归并，每次新建', async () => {
-    await publish() // POI-1 已建
+  test('手动新地点（poiId=null）：不与不同名的 POI 地点归并，同名则归并（真机反馈）', async () => {
+    await publish() // POI-1「外婆家（湖滨银泰店）」已建
     const manual = await publish({
       newPlace: newPlace({ poiId: null, name: '家里楼下', type: 'other', location: null }),
       rating: 3
@@ -146,6 +146,28 @@ describe('publishRecord（发布记录）', () => {
     expect(sdk.__state.collections.places).toHaveLength(2)
     expect(sdk.__state.collections.places[1].poiId).toBeNull()
     expect(sdk.__state.collections.places[1].location).toBeNull()
+  })
+
+  test('手动新地点同名再打卡：归并到同一 places 文档（如「清华大学」打三次卡）', async () => {
+    const manualPlace = () => newPlace({ poiId: null, name: '清华大学', type: 'attraction', location: null })
+    await publish({ newPlace: manualPlace(), rating: 5 })
+    await publish({ newPlace: manualPlace(), rating: 4 })
+    const third = await publish({ newPlace: manualPlace(), rating: 3 })
+    expect(third.code).toBeUndefined()
+    // 三次打卡归并为一个地点文档，三条记录挂同一 placeId
+    expect(sdk.__state.collections.places).toHaveLength(1)
+    expect(sdk.__state.collections.records).toHaveLength(3)
+    const placeId = sdk.__state.collections.places[0]._id
+    expect(sdk.__state.collections.records.every(r => r.placeId === placeId)).toBe(true)
+    // 类型继承首打卡选定，不覆盖
+    expect(sdk.__state.collections.places[0].type).toBe('attraction')
+  })
+
+  test('POI id 变了但同名：也按名称归并到已有地点', async () => {
+    await publish({ newPlace: newPlace({ poiId: 'POI-A', name: '清华大学' }), rating: 5 })
+    const second = await publish({ newPlace: newPlace({ poiId: 'POI-B', name: '清华大学' }), rating: 4 })
+    expect(second.code).toBeUndefined()
+    expect(sdk.__state.collections.places).toHaveLength(1)
   })
 
   test('无图片的记录不覆盖地点已有封面', async () => {

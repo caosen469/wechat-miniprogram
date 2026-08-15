@@ -53,6 +53,24 @@ describe('leaveCircle（自退）', () => {
     const result = await leaveCircle.main({})
     expect(result.code).toBe('NOT_IN_CIRCLE')
   })
+
+  test('自退的是另一半：circles.pairIds 一并清空（真机反馈：移除后设置页不再显示旧搭档）', async () => {
+    sdk.__state.collections.circles[0].pairIds = ['openid-a', 'openid-b']
+    const result = await leaveCircle.main({})
+    expect(result.code).toBeUndefined()
+    expect(sdk.__state.collections.circles[0].pairIds).toEqual([])
+  })
+
+  test('自退的不是另一半：pairIds 不动', async () => {
+    sdk.__state.collections.members.push(
+      { _id: 'member-3', openid: 'openid-c', nickname: '妈妈', avatarUrl: '', role: 'member', status: 'active', joinedAt: new Date(), leftAt: null, lastReadAt: null }
+    )
+    sdk.__state.collections.circles[0].pairIds = ['openid-a', 'openid-c']
+    sdk.__state.openid = 'openid-b'
+    const result = await leaveCircle.main({})
+    expect(result.code).toBeUndefined()
+    expect(sdk.__state.collections.circles[0].pairIds).toEqual(['openid-a', 'openid-c'])
+  })
 })
 
 describe('removeMember（圈主移除成员）', () => {
@@ -67,6 +85,25 @@ describe('removeMember（圈主移除成员）', () => {
     expect(removed.status).toBe('removed')
     expect(removed.leftAt).toBeInstanceOf(Date)
     expect(sdk.__state.collections.members).toHaveLength(2)
+  })
+
+  test('移除的是另一半：circles.pairIds 一并清空（真机反馈：移除后设置页不再显示旧搭档）', async () => {
+    sdk.__state.collections.circles[0].pairIds = ['openid-a', 'openid-b']
+    sdk.__state.openid = 'openid-a'
+    const result = await removeMember.main({ memberId: 'member-2' })
+    expect(result.code).toBeUndefined()
+    expect(sdk.__state.collections.circles[0].pairIds).toEqual([])
+  })
+
+  test('移除的不是另一半：pairIds 不动', async () => {
+    sdk.__state.collections.members.push(
+      { _id: 'member-3', openid: 'openid-c', nickname: '妈妈', avatarUrl: '', role: 'member', status: 'active', joinedAt: new Date(), leftAt: null, lastReadAt: null }
+    )
+    sdk.__state.collections.circles[0].pairIds = ['openid-a', 'openid-b']
+    sdk.__state.openid = 'openid-a'
+    const result = await removeMember.main({ memberId: 'member-3' })
+    expect(result.code).toBeUndefined()
+    expect(sdk.__state.collections.circles[0].pairIds).toEqual(['openid-a', 'openid-b'])
   })
 
   test('不可移除自己：返回 VALIDATION_FAILED', async () => {
