@@ -99,6 +99,51 @@ describe('listFeed（简版足迹流水）', () => {
     expect(asString.records.map(r => r._id)).toEqual(['r-old'])
   })
 
+  test('after 游标（T21 红点展开用）：只返回 createdAt 晚于 after 的记录（ISO 字符串也接受）', async () => {
+    sdk.__reset(seed([
+      // r-new 创建晚但到访时间早（补记语义）：按 happenedAt 排位，不影响 after 按 createdAt 过滤
+      record({ _id: 'r-new', createdAt: hoursAgo(1), happenedAt: hoursAgo(50) }),
+      record({ _id: 'r-mid', createdAt: hoursAgo(5), happenedAt: hoursAgo(5) }),
+      record({ _id: 'r-old', createdAt: hoursAgo(48), happenedAt: hoursAgo(48) })
+    ]))
+    const asDate = await listFeed.main({ after: hoursAgo(10) })
+    expect(asDate.records.map(r => r._id)).toEqual(['r-mid', 'r-new'])
+
+    sdk.__reset(seed([
+      record({ _id: 'r-new', createdAt: hoursAgo(1), happenedAt: hoursAgo(1) }),
+      record({ _id: 'r-old', createdAt: hoursAgo(48), happenedAt: hoursAgo(48) })
+    ]))
+    const asString = await listFeed.main({ after: hoursAgo(10).toISOString() })
+    expect(asString.records.map(r => r._id)).toEqual(['r-new'])
+  })
+
+  test('after 与 before 可组合；after 之后的不可见记录（pair/private/退出成员）仍被过滤', async () => {
+    sdk.__reset(seed([
+      record({ _id: 'r-new', createdAt: hoursAgo(1), happenedAt: hoursAgo(1) }),
+      record({ _id: 'r-fam', createdAt: hoursAgo(4), happenedAt: hoursAgo(20) }),
+      record({ _id: 'r-mid', createdAt: hoursAgo(5), happenedAt: hoursAgo(20) }),
+      record({ _id: 'r-old', createdAt: hoursAgo(48), happenedAt: hoursAgo(48) }),
+      record({ _id: 'r-pair', createdAt: hoursAgo(2), happenedAt: hoursAgo(20), visibility: 'pair', pairIds: ['openid-b', 'openid-c'] }),
+      record({ _id: 'r-priv', createdAt: hoursAgo(2), happenedAt: hoursAgo(20), visibility: 'private', authorId: 'openid-b' }),
+      record({ _id: 'r-left', createdAt: hoursAgo(2), happenedAt: hoursAgo(20), authorId: 'openid-c', visibility: 'family' })
+    ]))
+    // after = 10 小时前：r-new/r-fam/r-mid/r-pair/r-priv/r-left 都晚于它，r-old 被排除；
+    // before = 3 小时前：r-new 到访太近被排除
+    const result = await listFeed.main({ after: hoursAgo(10), before: hoursAgo(3) })
+    // r-fam / r-mid（happenedAt 20h ≤ before 且 createdAt > after）可见 → 通过；
+    // pair/private 对 openid-a 不可见、退出成员记录不可见 → 全部排除
+    expect(result.records.map(r => r._id)).toEqual(['r-fam', 'r-mid'])
+  })
+
+  test('after 为非法值：忽略游标，等同不带 after', async () => {
+    sdk.__reset(seed([
+      record({ _id: 'r-new', createdAt: hoursAgo(1), happenedAt: hoursAgo(1) }),
+      record({ _id: 'r-old', createdAt: hoursAgo(48), happenedAt: hoursAgo(48) })
+    ]))
+    const result = await listFeed.main({ after: 'not-a-date' })
+    expect(result.records.map(r => r._id)).toEqual(['r-new', 'r-old'])
+  })
+
   test('limit 截断（默认 20，上限 50）', async () => {
     const many = Array.from({ length: 25 }, (_, i) =>
       record({ _id: `r-${i}`, createdAt: hoursAgo(i + 1) }))

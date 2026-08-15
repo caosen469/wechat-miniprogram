@@ -1,0 +1,9 @@
+{
+  "name": "markRead",
+  "version": "1.0.0",
+  "description": "红点水位：更新成员 lastReadAt（spec 5.1/8.2）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

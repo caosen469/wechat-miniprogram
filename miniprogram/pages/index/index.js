@@ -1,10 +1,18 @@
-// 首页·足迹列表（spec 6.2 定稿形态，T19）：地点为一等公民。
-// 每张地点卡片 = listPlaces 聚合的封面拼图（1 图或 4 图拼图）+ 地点名 + 类型
-// + 均分 ★ + 到访次数 + 情绪档位徽章（按均分映射）；点卡片进地点页。
-// 每次进入本页刷新（发布返回后新聚合立即可见）；右下角常驻打卡按钮跳发布页。
+// 首页·浏览侧收尾三件套（spec 6.2 定稿形态，T21）：
+// 1) 段控「列表 | 地图」——列表 = 地点卡片（T19：地点为一等公民）；地图 =
+//    内置 <map> 一店一 marker（placeId 字符串 → 数字 id 映射，customCallout
+//    显示名称/均分/次数，点 marker 出气泡、点气泡进地点页）。
+// 2) 空状态 = 最小引导（一句话 + 打卡按钮，不做示例内容，T6 决议）。
+// 3) 新回忆红点条——bootstrap.unreadCount > 0 显示「N 条新回忆」，点击展开
+//    最新未读记录（listFeed after=水位；口径与 unreadCount 一致：可见 + 非本人
+//    所发）并调 markRead 更新水位，红点消失（spec 8.2）。
 const { callApi } = require('../../services/api')
 const { gradeOf, tierKeyOf, starsOf } = require('../../services/rating')
 const { typeLabelOf } = require('../../services/placeTypes')
+const { formatTime } = require('../../services/formatTime')
+
+// 地图兜底中心：所有地点都缺坐标时也不会崩（正常由 include-points 自适应视野）
+const DEFAULT_CENTER = { latitude: 39.908823, longitude: 116.39747 }
 
 Page({
   data: {
@@ -14,13 +22,22 @@ Page({
     me: null,
     places: [], // listPlaces 聚合的地点卡片
     loadingPlaces: false,
-    placesError: ''
+    placesError: '',
+    viewMode: 'list', // 段控：'list' | 'map'
+    markers: [], // <map> markers：id 为数字（placeId → 下标映射），callout 数据随身带
+    mapCenter: DEFAULT_CENTER,
+    unreadCount: 0, // bootstrap.unreadCount（spec 8.2：红点条唯一数据源）
+    unreadOpen: false, // 红点条是否展开（展开后显示最新未读记录）
+    unreadRecords: [],
+    unreadLoading: false,
+    unreadError: ''
   },
 
   async onShow () {
     // 冷启动身份检查每个页面实例只做一次（从 onboarding reLaunch 回来是全新实例）；
-    // 已检查过则只刷新聚合——发布/编辑/删除返回后数字与封面立即更新
+    // 已检查过则只轻刷新：红点未读数（另一台手机新发记录后再次进入立即出现）+ 地点聚合
     if (this.bootstrapped) {
+      this.refreshUnread()
       this.loadPlaces()
       return
     }
@@ -38,7 +55,7 @@ Page({
         return
       }
       getApp().globalData.bootstrap = result
-      this.setData({ me: result.me, checking: false })
+      this.setData({ me: result.me, unreadCount: result.unreadCount || 0, checking: false })
       await this.loadPlaces()
     } catch (err) {
       // bootstrap 失败不阻断：留在本页给重试入口，并展示真实错误便于排查
@@ -47,6 +64,22 @@ Page({
         checkFailed: true,
         checkError: err.errMsg || err.message || String(err)
       })
+    }
+  },
+
+  // 轻刷新红点：bootstrap 是 unreadCount 的唯一数据源（spec 8.2）。
+  // 被移除等极端情况（me 变 null）回 onboarding；刷新失败静默，保留上次值下次再试
+  async refreshUnread () {
+    try {
+      const result = await callApi('bootstrap')
+      if (!result.me) {
+        wx.reLaunch({ url: '/pages/onboarding/onboarding' })
+        return
+      }
+      getApp().globalData.bootstrap = result
+      this.setData({ me: result.me, unreadCount: result.unreadCount || 0 })
+    } catch (err) {
+      // 静默：红点保留旧值，下个 onShow 再试
     }
   },
 
@@ -68,10 +101,52 @@ Page({
           gradeKey: tierKeyOf(rounded)
         }
       })
-      this.setData({ places, loadingPlaces: false })
+      const markers = this.buildMarkers(places)
+      this.setData({
+        places,
+        markers,
+        mapCenter: markers.length
+          ? { latitude: markers[0].latitude, longitude: markers[0].longitude }
+          : DEFAULT_CENTER,
+        loadingPlaces: false
+      })
     } catch (err) {
       this.setData({ loadingPlaces: false, placesError: err.message || '加载失败' })
     }
+  },
+
+  // 一店一 marker（spec 6.2）：<map> 的 marker id 必须是数字，placeId 字符串
+  // 按下标映射（spec 阶段 3 易卡点）。location 为 Geo.Point，coordinates=[经度, 纬度]。
+  // customCallout 用 BYCLICK：点 marker 才弹气泡；气泡内容在 wxml 的
+  // <cover-view slot="callout" marker-id> 里渲染（原生层置顶、可点）。
+  buildMarkers (places) {
+    const markers = []
+    places.forEach((p, i) => {
+      const loc = p.location
+      if (!loc || !Array.isArray(loc.coordinates) || loc.coordinates.length < 2) return
+      const longitude = Number(loc.coordinates[0])
+      const latitude = Number(loc.coordinates[1])
+      if (isNaN(longitude) || isNaN(latitude)) return
+      markers.push({
+        id: i,
+        placeId: p._id,
+        name: p.name,
+        longitude,
+        latitude,
+        stars: p.stars,
+        avgText: p.avgText,
+        visitCount: p.visitCount,
+        customCallout: { display: 'BYCLICK' }
+      })
+    })
+    return markers
+  },
+
+  // 段控切换（spec 6.2）：列表 / 地图共用同一份地点数据，只是视图不同
+  onSwitchView (e) {
+    const mode = e.currentTarget.dataset.mode
+    if (mode === this.data.viewMode) return
+    this.setData({ viewMode: mode })
   },
 
   // 点地点卡片 → 地点页（spec 6.3）：名称先带上，加载后再校准导航栏标题
@@ -82,8 +157,67 @@ Page({
     })
   },
 
+  // 点 marker 气泡（customCallout）→ 地点页：marker id 是数字，经映射回 placeId
+  onCalloutTap (e) {
+    const marker = this.data.markers[e.currentTarget.dataset.markerId]
+    if (!marker) return
+    wx.navigateTo({
+      url: `/pages/place/place?placeId=${marker.placeId}&name=${encodeURIComponent(marker.name || '')}`
+    })
+  },
+
   // 右下角打卡按钮 → 发布页（spec 6.2）
   onTapPublish () {
     wx.navigateTo({ url: '/pages/publish/publish' })
+  },
+
+  // 红点条：展开/收起。展开时拉最新未读记录并 markRead 更新水位（红点消失，
+  // 记录仍保留展示；收起后下次 onShow 的 bootstrap 确认 unreadCount=0）
+  onTapUnread () {
+    if (this.data.unreadOpen) {
+      this.setData({ unreadOpen: false })
+      return
+    }
+    this.openUnread()
+  },
+
+  async openUnread () {
+    if (this.data.unreadLoading) return
+    const me = this.data.me
+    // 水位：与 bootstrap 同一回退（首次 markRead 前回退到 joinedAt，spec 4.2）
+    const watermark = me && (me.lastReadAt || me.joinedAt)
+    if (!watermark) return
+    this.setData({ unreadLoading: true, unreadError: '' })
+    try {
+      // 与 unreadCount 同口径：createdAt > 水位、可见（listFeed 已按 spec 4.6
+      // 过滤）、非本人所发（自己发的不给自己红点，客户端再滤一层保持一致）
+      const result = await callApi('listFeed', { after: watermark, limit: 50 })
+      const records = (result.records || [])
+        .filter(r => r.authorId !== me.openid)
+        .map(r => {
+          const image = (r.media || []).find(m => m && m.type === 'image' && m.fileID)
+          return {
+            ...r,
+            thumb: image ? image.fileID : '',
+            authorName: r.author ? r.author.nickname : '',
+            timeText: formatTime(r.happenedAt || r.createdAt)
+          }
+        })
+      this.setData({ unreadOpen: true, unreadRecords: records, unreadLoading: false })
+      // 水位推进：红点消失。服务端 markRead 已落库，本地同步水位与计数，
+      // 下次 onShow 的 bootstrap 以新水位确认 unreadCount=0
+      await callApi('markRead')
+      this.setData({
+        unreadCount: 0,
+        'me.lastReadAt': new Date().toISOString()
+      })
+    } catch (err) {
+      this.setData({ unreadOpen: true, unreadLoading: false, unreadError: err.message || '加载失败' })
+    }
+  },
+
+  // 点未读记录 → 记录详情（spec 8.2：点击直达）
+  onOpenUnreadRecord (e) {
+    wx.navigateTo({ url: `/pages/detail/detail?recordId=${e.currentTarget.dataset.id}` })
   }
 })

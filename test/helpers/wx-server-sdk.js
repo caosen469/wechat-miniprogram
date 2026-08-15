@@ -2,8 +2,10 @@
 //   cloud.init / cloud.getWXContext / cloud.database / cloud.deleteFile
 //   db.collection(name).where(cond).get()/count()/update()、collection.add、collection.count、
 //   collection.doc(id).get()/update()/remove()、db.createCollection、where().orderBy().limit().get()
-//   db.command 的 gt/and/or/neq（返回不透明对象，where 匹配时跳过命令字段，
-//   命令条件的查询结果用 __setCount 显式指定，用于测分支而非测查询语义）
+//   db.command 的 gt/and/or/neq/in：where 会真实求值命令条件（用于 bootstrap 的
+//   unreadCount 可见性过滤测试）；与命令无关的字段仍按精确匹配。
+//   数组字段 + 标量条件的语义与真实云数据库一致：where({arrField: x}) 匹配
+//   数组包含 x（bootstrap 的 {pairIds: OPENID} 依赖这一行为）。
 //   db.Geo.Point（记录经纬度，spec 4.4 location 字段）
 //
 // 真实云数据库里「集合不存在」时读写会抛错，这里保持同样行为，
@@ -27,6 +29,51 @@ function isPlainValue (v) {
   return v === null || ['string', 'number', 'boolean'].includes(typeof v)
 }
 
+// ---- db.command 求值（_.gt / _.neq / _.and / _.or）----
+// 约定：command 对象是 {__cmd, v | args} 形态；字段命令（gt/neq）作用于单个字段值，
+// 顶层 and/or 作用于整个文档（其参数是「字段对象」或嵌套命令）。
+function isCommand (v) {
+  return !!v && typeof v === 'object' && typeof v.__cmd === 'string'
+}
+
+// 字段命令：actual 是该字段在文档里的值
+function evalFieldCommand (cmd, actual) {
+  switch (cmd.__cmd) {
+    case 'gt': return actual > cmd.v
+    case 'neq': return actual !== cmd.v
+    case 'in': return Array.isArray(cmd.v) && cmd.v.includes(actual)
+    case 'and': return cmd.args.every(a => isPlainValue(a) ? actual === a : evalFieldCommand(a, actual))
+    case 'or': return cmd.args.some(a => isPlainValue(a) ? actual === a : evalFieldCommand(a, actual))
+    default: return true
+  }
+}
+
+// 字段对象：{field: 值 | 字段命令}，作用于单个文档
+function matchesFieldObject (obj, doc) {
+  return Object.keys(obj).every(k => {
+    const v = obj[k]
+    if (isPlainValue(v)) {
+      // 数组字段 + 标量 = 包含匹配（真实云数据库语义，如 {pairIds: OPENID}）
+      return Array.isArray(doc[k]) ? doc[k].includes(v) : doc[k] === v
+    }
+    return evalFieldCommand(v, doc[k])
+  })
+}
+
+// 顶层命令：_.and(...) / _.or(...)，其参数是字段对象或嵌套顶层命令
+function evalTopCommand (cmd, doc) {
+  const evalArg = a => isCommand(a) ? evalTopCommand(a, doc) : matchesFieldObject(a, doc)
+  if (cmd.__cmd === 'and') return cmd.args.every(evalArg)
+  if (cmd.__cmd === 'or') return cmd.args.some(evalArg)
+  return true
+}
+
+// where 条件：可能是普通字段对象，也可能是顶层命令对象（如 bootstrap 的 _.and）
+function whereMatches (doc, cond) {
+  if (isCommand(cond)) return evalTopCommand(cond, doc)
+  return matchesFieldObject(cond, doc)
+}
+
 const REMOVE = Symbol('remove')
 
 function applyUpdate (doc, data) {
@@ -45,9 +92,7 @@ function makeQuery (docs, name) {
   return {
     where (cond = {}) {
       if (docs === undefined) return makeQuery(undefined, name)
-      const filtered = docs.filter(doc =>
-        Object.keys(cond).every(k => isPlainValue(cond[k]) ? doc[k] === cond[k] : true)
-      )
+      const filtered = docs.filter(doc => whereMatches(doc, cond))
       return makeQuery(filtered, name)
     },
     limit () {
@@ -121,6 +166,7 @@ const db = {
   command: {
     gt: v => ({ __cmd: 'gt', v }),
     neq: v => ({ __cmd: 'neq', v }),
+    in: v => ({ __cmd: 'in', v }),
     and: (...args) => ({ __cmd: 'and', args }),
     or: (...args) => ({ __cmd: 'or', args }),
     remove: () => REMOVE

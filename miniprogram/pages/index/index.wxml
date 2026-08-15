@@ -8,14 +8,82 @@
   </block>
 
   <block wx:else>
-    <!-- 空状态 = 最小引导（spec 6.2）：一句话 + 打卡入口，不做示例内容 -->
+    <!-- 顶部段控「列表 | 地图」（spec 6.2）：同一份地点数据，两种视图 -->
+    <view class="seg">
+      <view class="seg-item {{viewMode === 'list' ? 'seg-on' : ''}}" data-mode="list" bindtap="onSwitchView">列表</view>
+      <view class="seg-item {{viewMode === 'map' ? 'seg-on' : ''}}" data-mode="map" bindtap="onSwitchView">地图</view>
+    </view>
+
+    <!-- 新回忆红点条（spec 6.2/8.2）：unreadCount > 0 显示「N 条新回忆」；
+         点击展开最新未读记录并 markRead 更新水位，红点消失（记录保留展示） -->
+    <view wx:if="{{unreadCount > 0 || unreadOpen}}" class="unread">
+      <view class="unread-bar" bindtap="onTapUnread">
+        <view class="unread-dot {{unreadCount > 0 ? '' : 'unread-dot-off'}}"></view>
+        <text class="unread-text">{{unreadCount > 0 ? unreadCount + ' 条新回忆' : '已读'}}</text>
+        <text class="unread-arrow {{unreadOpen ? 'unread-arrow-open' : ''}}">▾</text>
+      </view>
+      <block wx:if="{{unreadOpen}}">
+        <view wx:if="{{unreadLoading}}" class="unread-tip">加载中…</view>
+        <view wx:elif="{{unreadError}}" class="unread-tip unread-error" bindtap="openUnread">加载失败，点击重试</view>
+        <view wx:elif="{{unreadRecords.length === 0}}" class="unread-tip">没有新的回忆</view>
+        <view wx:else class="unread-list">
+          <view
+            class="unread-item"
+            wx:for="{{unreadRecords}}"
+            wx:key="_id"
+            bindtap="onOpenUnreadRecord"
+            data-id="{{item._id}}"
+          >
+            <image wx:if="{{item.thumb}}" class="unread-thumb" src="{{item.thumb}}" mode="aspectFill" />
+            <view wx:else class="unread-thumb unread-thumb-empty">📷</view>
+            <view class="unread-body">
+              <view class="unread-line">{{item.text || '（无文字）'}}</view>
+              <view class="unread-meta">{{item.authorName}} · {{item.timeText}}</view>
+            </view>
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <!-- 空状态 = 最小引导（spec 6.2）：一句话 + 打卡入口，不做示例内容（T6 决议）。
+         列表/地图两种视图共用——没有地点时地图就是画布，都引导去打卡 -->
     <view wx:if="{{!loadingPlaces && places.length === 0 && !placesError}}" class="empty">
       <view class="empty-title">这里还空着，去吃点什么吧</view>
       <button class="empty-btn" type="primary" bindtap="onTapPublish">去打卡</button>
     </view>
 
+    <!-- 地图视图（spec 6.2）：一店一 marker，customCallout 显示名称/均分/次数。
+         marker id 为数字（placeId → 下标映射）；callout 用 cover-view slot 渲染，
+         原生层置顶可点；include-points 让全部 marker 自适应视野 -->
+    <map
+      wx:if="{{viewMode === 'map' && places.length > 0}}"
+      class="map-view"
+      longitude="{{mapCenter.longitude}}"
+      latitude="{{mapCenter.latitude}}"
+      scale="{{12}}"
+      markers="{{markers}}"
+      include-points="{{markers}}"
+    >
+      <cover-view
+        wx:for="{{markers}}"
+        wx:key="id"
+        slot="callout"
+        marker-id="{{item.id}}"
+        class="callout"
+        data-marker-id="{{item.id}}"
+        bindtap="onCalloutTap"
+      >
+        <cover-view class="callout-name">{{item.name}}</cover-view>
+        <cover-view class="callout-meta">
+          <cover-view class="callout-stars">{{item.stars}}</cover-view>
+          <cover-view class="callout-avg">{{item.avgText}}</cover-view>
+          <cover-view class="callout-visits">去过 {{item.visitCount}} 次</cover-view>
+        </cover-view>
+      </cover-view>
+    </map>
+
     <!-- 足迹列表：地点为一等公民（spec 6.2，T19） -->
-    <view wx:else class="places">
+    <view wx:if="{{viewMode === 'list' && !loadingPlaces && places.length > 0 && !placesError}}" class="places">
       <view
         class="place-card"
         wx:for="{{places}}"
@@ -56,7 +124,7 @@
     <view wx:if="{{loadingPlaces && places.length === 0}}" class="tip">加载中…</view>
     <view wx:if="{{placesError}}" class="feed-error" bindtap="loadPlaces">加载失败：{{placesError}}（点击重试）</view>
 
-    <!-- 右下角常驻打卡按钮（spec 6.2） -->
-    <view class="fab" bindtap="onTapPublish">＋</view>
+    <!-- 右下角常驻打卡按钮（spec 6.2）：cover-view 保证在地图原生组件之上仍可点 -->
+    <cover-view class="fab" bindtap="onTapPublish">＋</cover-view>
   </block>
 </view>

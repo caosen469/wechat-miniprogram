@@ -83,4 +83,76 @@ describe('bootstrap（冷启动）', () => {
     const result = await bootstrap.main()
     expect(result.unreadCount).toBe(0)
   })
+
+  test('unreadCount 只统计对自己可见、水位之后、非本人所发的记录（spec 4.6 + 4.2 + 8.2）', async () => {
+    const joinedAt = new Date('2026-07-01T00:00:00Z')
+    const watermark = new Date('2026-07-02T00:00:00Z')
+    const after = new Date('2026-07-03T00:00:00Z')
+    const before = new Date('2026-07-01T00:00:00Z')
+    sdk.__reset({
+      collections: {
+        circles: [{ _id: 'c1', ownerId: 'openid-a', pairIds: ['openid-a', 'openid-b'], createdAt: joinedAt }],
+        members: [
+          { _id: 'm1', openid: 'openid-a', nickname: '我', status: 'active', joinedAt, lastReadAt: watermark },
+          { _id: 'm2', openid: 'openid-b', nickname: '她', status: 'active', joinedAt },
+          { _id: 'm3', openid: 'openid-c', nickname: '旧人', status: 'left', joinedAt }
+        ],
+        records: [
+          // 可见（family）且水位之后 → 计入
+          { _id: 'r-family', authorId: 'openid-b', visibility: 'family', createdAt: after },
+          // pair 档但 openid-a 不在 pairIds → 不可见，不计
+          { _id: 'r-pair', authorId: 'openid-b', visibility: 'pair', pairIds: ['openid-b', 'openid-c'], createdAt: after },
+          // private 档作者是别人 → 不可见，不计
+          { _id: 'r-priv', authorId: 'openid-b', visibility: 'private', createdAt: after },
+          // 退出成员的记录 → 不可见，不计
+          { _id: 'r-left', authorId: 'openid-c', visibility: 'family', createdAt: after },
+          // 自己发的 → 不给自己红点，不计
+          { _id: 'r-self', authorId: 'openid-a', visibility: 'family', createdAt: after },
+          // 水位之前的旧记录 → 不计
+          { _id: 'r-old', authorId: 'openid-b', visibility: 'family', createdAt: before }
+        ]
+      }
+    })
+    const result = await bootstrap.main()
+    expect(result.unreadCount).toBe(1) // 仅 r-family
+  })
+
+  test('pair 档且 openid-a 在 pairIds 内：计入未读', async () => {
+    const joinedAt = new Date('2026-07-01T00:00:00Z')
+    const watermark = new Date('2026-07-02T00:00:00Z')
+    const after = new Date('2026-07-03T00:00:00Z')
+    sdk.__reset({
+      collections: {
+        circles: [{ _id: 'c1', ownerId: 'openid-a', pairIds: ['openid-a', 'openid-b'], createdAt: joinedAt }],
+        members: [
+          { _id: 'm1', openid: 'openid-a', nickname: '我', status: 'active', joinedAt, lastReadAt: watermark },
+          { _id: 'm2', openid: 'openid-b', nickname: '她', status: 'active', joinedAt }
+        ],
+        records: [
+          { _id: 'r-pair', authorId: 'openid-b', visibility: 'pair', pairIds: ['openid-a', 'openid-b'], createdAt: after }
+        ]
+      }
+    })
+    const result = await bootstrap.main()
+    expect(result.unreadCount).toBe(1)
+  })
+
+  test('private 档作者本人发的：计入自己的未读（对自己可见）', async () => {
+    const joinedAt = new Date('2026-07-01T00:00:00Z')
+    const watermark = new Date('2026-07-02T00:00:00Z')
+    const after = new Date('2026-07-03T00:00:00Z')
+    sdk.__reset({
+      collections: {
+        circles: [{ _id: 'c1', ownerId: 'openid-a', pairIds: [], createdAt: joinedAt }],
+        members: [
+          { _id: 'm1', openid: 'openid-a', nickname: '我', status: 'active', joinedAt, lastReadAt: watermark }
+        ],
+        records: [
+          { _id: 'r-self-priv', authorId: 'openid-a', visibility: 'private', createdAt: after }
+        ]
+      }
+    })
+    const result = await bootstrap.main()
+    expect(result.unreadCount).toBe(0) // 自己发的 → 不给自己红点
+  })
 })

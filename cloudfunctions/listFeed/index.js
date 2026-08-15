@@ -1,8 +1,10 @@
-// listFeed —— 记录流水（spec 5.1、4.6；T16 + T18 合并版）。
+// listFeed —— 记录流水（spec 5.1、4.6；T16 + T18 合并版，T21 加 after 游标）。
 // 按 happenedAt 时间倒序（补记排位正确，spec 4.5），同一 happenedAt 按
 // createdAt 决胜（T16 列表的发布序）；可见性过滤经公共 visibility.js
 // （spec 4.6 三档 + 4.2 退出成员记录不可见）；作者/参与者昵称头像与地点
-// 名称类型由服务端 join，前端不做二次请求。before 游标 + limit 分页。
+// 名称类型由服务端 join，前端不做二次请求。before（happenedAt ≤）游标 +
+// after（createdAt >）游标 + limit 分页——after 供首页红点条展开「最新未读
+// 记录」用（spec 8.2：未读 = createdAt > lastReadAt 且可见）。
 //
 // 家庭圈 4–6 人量级，取全量记录在函数内过滤后分页（spec 4.4 派生值同理：
 // 量级小，无需把可见性下推到查询条件）。
@@ -37,6 +39,9 @@ function parseBefore (before) {
   return isNaN(date.getTime()) ? null : date
 }
 
+// after 游标：与 before 同一解析，作用于 createdAt（红点水位语义，spec 4.2）
+const parseAfter = parseBefore
+
 const happenedTs = r => new Date(r.happenedAt).getTime()
 
 // 排序：happenedAt 倒序（补记语义），同 happenedAt 按 createdAt 决胜
@@ -68,13 +73,16 @@ exports.main = async (event) => {
 
   // ---- 过滤 + 游标 + 排序 + 分页（在可见记录之上切片）----
   const before = parseBefore(event.before)
+  const after = parseAfter(event.after)
   const limitRaw = Number(event.limit) || PAGE_DEFAULT
   const limit = Math.min(Math.max(Math.floor(limitRaw), 1), PAGE_MAX)
   const visible = recordsRes.data.filter(r =>
     isVisible(r, OPENID, activeOpenids) &&
-    // 游标用 ≤：补记只精确到分钟，同一分钟的记录用 < 会被永久跳过；
+    // before 游标用 ≤：补记只精确到分钟，同一分钟的记录用 < 会被永久跳过；
     // 代价是游标本身可能重复出现在下一页，由前端按 _id 去重
-    (!before || happenedTs(r) <= before.getTime())
+    (!before || happenedTs(r) <= before.getTime()) &&
+    // after 游标用 >：水位之后的才算未读（与 bootstrap.unreadCount 口径一致）
+    (!after || new Date(r.createdAt).getTime() > after.getTime())
   ).sort(byTimeDesc)
 
   // ---- join：作者/参与者昵称头像（spec 5.1）+ 地点名称类型（简版列表展示用）----

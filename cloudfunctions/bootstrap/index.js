@@ -36,8 +36,12 @@ exports.main = async () => {
   // 成员列表含退出/被移除成员（记录保留、查询时按 status 过滤，ADR 0002；设置页要显示状态）
   const allMembersRes = await safeGet(db.collection('members').limit(100))
   const members = allMembersRes.data
+  // active 成员 openid 集合：未读统计只算「可见」记录（spec 4.6 + 4.2），
+  // 退出/被移除成员的记录对本人不可见，同样不该进红点数
+  const activeOpenids = members.filter(m => m.status === 'active').map(m => m.openid)
 
-  // 未读数：createdAt > 水位线 且对本人可见（spec 4.6 规则）且非本人所发（自己发的不给自己红点）。
+  // 未读数：createdAt > 水位线 且对本人可见（spec 4.6 规则 + 4.2 退出成员不可见）
+  // 且非本人所发（自己发的不给自己红点）。
   // 水位线：lastReadAt（首次 markRead 前）回退到 joinedAt，避免入圈即满屏红点。
   const watermark = me.lastReadAt || me.joinedAt
   let unreadCount = 0
@@ -49,7 +53,12 @@ exports.main = async () => {
     )
     try {
       const res = await db.collection('records')
-        .where(_.and({ createdAt: _.gt(watermark) }, visible, { authorId: _.neq(OPENID) }))
+        .where(_.and(
+          { createdAt: _.gt(watermark) },
+          visible,
+          { authorId: _.neq(OPENID) },
+          { authorId: _.in(activeOpenids) }
+        ))
         .count()
       unreadCount = res.total
     } catch (err) {
