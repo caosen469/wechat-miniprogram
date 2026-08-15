@@ -24,6 +24,14 @@ function err (code, message) {
   return { code, message }
 }
 
+// 全新环境 places/records 集合可能尚未创建，首次写入前先补建
+// （已存在时报错，忽略即可；与 createCircle 的补建约定一致）
+async function ensureCollection (name) {
+  try {
+    await db.createCollection(name)
+  } catch (e) { /* 已存在 */ }
+}
+
 // 媒体服务端复核：[{fileID, type: 'image'|'video', duration?}]，可为空（原型允许未配媒体）
 function validateMedia (media) {
   if (!Array.isArray(media)) {
@@ -100,6 +108,8 @@ exports.main = async (event) => {
   }
 
   // ---- 地点解析：placeId 直用；newPlace 按 poiId 归并（poiId=null 手动地点每次新建）----
+  await ensureCollection('places')
+  await ensureCollection('records')
   let place = null
   if (typeof event.placeId === 'string' && event.placeId) {
     try {

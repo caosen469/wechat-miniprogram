@@ -52,6 +52,26 @@ beforeEach(() => {
 })
 
 describe('publishRecord（发布记录·简化版）', () => {
+  test('全新环境 places/records 集合尚不存在：自动补建后发布成功', async () => {
+    // 回归：曾因集合缺失在 add 时抛错，前端表现为 cloud.callFunction:fail
+    sdk.__reset({
+      collections: {
+        circles: [{ ownerId: 'openid-a', pairIds: [], createdAt: new Date() }],
+        members: [{ _id: 'm-a', ...me }]
+      }
+    })
+    needReset = false
+
+    const result = await publishRecord.main({
+      media: mediaOk, text: '首打卡', rating: 5, newPlace: newPlace()
+    })
+
+    expect(result.code).toBeUndefined()
+    expect(result.recordId).toBeTruthy()
+    expect(sdk.__state.collections.places).toHaveLength(1)
+    expect(sdk.__state.collections.records).toHaveLength(1)
+  })
+
   test('新地点首打卡：建 places + records 文档，字段符合 spec 4.4/4.5', async () => {
     const result = await publish()
 
