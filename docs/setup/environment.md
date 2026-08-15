@@ -25,6 +25,6 @@
 ## 验收对照（issue #15）
 
 - [x] 使用正式 AppID（非测试号）创建小程序项目（wx37c0d5abd1cebf6b）
-- [ ] 手机真机预览能打开小程序（Hello World 级）
+- [x] 手机真机预览能打开小程序（Hello World 级）
 - [x] 云开发控制台能看到环境，环境 ID 记录在本文件（cloudbase-d6ghtbspmc62caa6d）
 - [x] 项目骨架含双 tab 路由、云函数目录；`hello` 云函数部署并被小程序端调用成功（2026-08-15 验证）
