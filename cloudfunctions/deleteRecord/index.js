@@ -1,7 +1,9 @@
-// deleteRecord —— 删除记录（spec 5.1）：能看见就能删除（spec 4.6 可见性过滤）。
+// deleteRecord —— 删除记录（spec 5.1）：能看见就能删除（公共 visibility.js：
+// spec 4.6 三档 + 4.2 退出成员记录不可见）。
 // 删文档同时 cloud.deleteFile 删媒体（图/视频/语音）；顺带刷新地点封面
-// （封面 = 该地点最新一条记录的首图，spec 4.4，与 publishRecord 同一派生规则）。
+// （封面 = 该地点最新「有图」记录的首图，spec 4.4，与 publishRecord 同一派生规则）。
 const cloud = require('wx-server-sdk')
+const { isVisible } = require('./visibility')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
@@ -9,13 +11,6 @@ const db = cloud.database()
 
 function err (code, message) {
   return { code, message }
-}
-
-// spec 4.6 可见性过滤规则（所有读路径统一实现；各云函数各持一份副本）
-function canSee (record, openid) {
-  if (record.visibility === 'family') return true
-  if (record.visibility === 'pair') return (record.pairIds || []).includes(openid)
-  return record.authorId === openid
 }
 
 // 封面派生规则（spec 4.4），publishRecord/updateRecord/deleteRecord 三个写路径统一：
@@ -33,13 +28,15 @@ function computeCover (records) {
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext()
 
-  // ---- 鉴权：openid → active 成员 ----
-  const memberRes = await db.collection('members')
-    .where({ openid: OPENID, status: 'active' })
-    .get()
-  if (memberRes.data.length === 0) {
+  // ---- 鉴权 + 可见性前置一次拉齐（spec 5.1、4.2）----
+  const allMembersRes = await db.collection('members').limit(100).get()
+  const me = allMembersRes.data.find(m => m.openid === OPENID && m.status === 'active')
+  if (!me) {
     return err('NOT_IN_CIRCLE', '你不在家庭圈中')
   }
+  const activeOpenids = new Set(
+    allMembersRes.data.filter(m => m.status === 'active').map(m => m.openid)
+  )
 
   // ---- 取记录：不存在与不可见统一 NOT_VISIBLE（spec 5.2）----
   const recordId = typeof event.recordId === 'string' ? event.recordId : ''
@@ -50,7 +47,7 @@ exports.main = async (event) => {
   } catch (e) {
     return err('NOT_VISIBLE', '记录不存在')
   }
-  if (!canSee(record, OPENID)) {
+  if (!isVisible(record, OPENID, activeOpenids)) {
     return err('NOT_VISIBLE', '记录不存在')
   }
 

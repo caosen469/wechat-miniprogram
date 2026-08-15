@@ -1,7 +1,9 @@
-// updateRecord —— 编辑记录（spec 5.1）：能看见就能编辑（spec 4.6 可见性过滤）。
+// updateRecord —— 编辑记录（spec 5.1）：能看见就能编辑（公共 visibility.js：
+// spec 4.6 三档 + 4.2 退出成员记录不可见）。
 // 可改字段：text / rating / visibility / participantIds / happenedAt / media，只改传入的。
 // visibility 改 pair 时以「改动时」的 circles.pairIds 重固化快照；从 pair 改走则清除快照。
 const cloud = require('wx-server-sdk')
+const { isVisible } = require('./visibility')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
@@ -19,13 +21,6 @@ const VISIBILITIES = ['family', 'pair', 'private']
 
 function err (code, message) {
   return { code, message }
-}
-
-// spec 4.6 可见性过滤规则（所有读路径统一实现；各云函数各持一份副本）
-function canSee (record, openid) {
-  if (record.visibility === 'family') return true
-  if (record.visibility === 'pair') return (record.pairIds || []).includes(openid)
-  return record.authorId === openid
 }
 
 function validateMedia (media) {
@@ -84,13 +79,15 @@ function computeCover (records) {
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext()
 
-  // ---- 鉴权：openid → active 成员 ----
-  const memberRes = await db.collection('members')
-    .where({ openid: OPENID, status: 'active' })
-    .get()
-  if (memberRes.data.length === 0) {
+  // ---- 鉴权 + 可见性前置一次拉齐（spec 5.1、4.2）----
+  const allMembersRes = await db.collection('members').limit(100).get()
+  const me = allMembersRes.data.find(m => m.openid === OPENID && m.status === 'active')
+  if (!me) {
     return err('NOT_IN_CIRCLE', '你不在家庭圈中')
   }
+  const activeOpenids = new Set(
+    allMembersRes.data.filter(m => m.status === 'active').map(m => m.openid)
+  )
 
   // ---- 取记录：不存在与不可见统一 NOT_VISIBLE（spec 5.2）----
   const recordId = typeof event.recordId === 'string' ? event.recordId : ''
@@ -101,7 +98,7 @@ exports.main = async (event) => {
   } catch (e) {
     return err('NOT_VISIBLE', '记录不存在')
   }
-  if (!canSee(record, OPENID)) {
+  if (!isVisible(record, OPENID, activeOpenids)) {
     return err('NOT_VISIBLE', '记录不存在')
   }
 
@@ -151,10 +148,9 @@ exports.main = async (event) => {
   }
 
   if (event.participantIds !== undefined) {
-    const activeOpenids = (await db.collection('members')
-      .where({ status: 'active' })
-      .get()).data.map(m => m.openid)
-    const participantError = validateParticipantIds(event.participantIds, activeOpenids, record.authorId)
+    const participantError = validateParticipantIds(
+      event.participantIds, [...activeOpenids], record.authorId
+    )
     if (participantError) return err('VALIDATION_FAILED', participantError)
     patch.participantIds = event.participantIds
   }

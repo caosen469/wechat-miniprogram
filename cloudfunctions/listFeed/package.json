@@ -1,7 +1,7 @@
 {
   "name": "listFeed",
   "version": "1.0.0",
-  "description": "记录流水（可见性过滤 + 服务端 join）",
+  "description": "记录流水：可见性过滤 + happenedAt 倒序 + 服务端 join 作者/参与者/地点",
   "main": "index.js",
   "dependencies": {
     "wx-server-sdk": "~2.6.3"

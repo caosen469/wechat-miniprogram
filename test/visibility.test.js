@@ -1,7 +1,55 @@
-// T18：4.6 节可见性过滤落到每一个读函数（listFeed / getRecord / getPlaceDetail）
-// 请求者 R 可见当且仅当：R.status=='active' 且
-//   visibility=='family' | (pair 且 R∈pairIds) | (private 且 R==authorId)
-// pairIds 是创建时快照：圈主重指另一半后，新搭档看不到旧 pair 记录。
+// 可见性过滤公共函数（spec 4.6 + 4.2）——读/写路径云函数各持一份部署副本
+// （云函数独立打包部署，共享代码只能随包复制）。本测试锁定所有副本行为完全
+// 一致：改了其中一份必须同步其余，否则这里红。
+// （visibility 是纯函数，不依赖 wx-server-sdk，无需 mock。）
+//
+// 下半部分是 T18 的集成矩阵：spec 4.6 三档 × 多请求者落到 listFeed /
+// getRecord / getPlaceDetail 三个读函数（T16 的单函数细节见各自测试文件）。
+
+// ---- 副本一致性锁定（T16）----
+
+const COPIES = {
+  listFeed: require('../cloudfunctions/listFeed/visibility'),
+  getRecord: require('../cloudfunctions/getRecord/visibility'),
+  getPlaceDetail: require('../cloudfunctions/getPlaceDetail/visibility'),
+  updateRecord: require('../cloudfunctions/updateRecord/visibility'),
+  deleteRecord: require('../cloudfunctions/deleteRecord/visibility')
+}
+
+const openid = 'openid-a'
+const base = { authorId: 'openid-b', pairIds: null, visibility: 'family' }
+
+// (名称, 记录, 期望可见) 矩阵：所有副本必须给出相同且符合 spec 4.6 的答案
+const matrix = [
+  ['family 档', { visibility: 'family' }, true],
+  ['pair 档且在 pairIds', { visibility: 'pair', pairIds: ['openid-a', 'openid-b'] }, true],
+  ['pair 档不在 pairIds', { visibility: 'pair', pairIds: ['openid-b', 'openid-c'] }, false],
+  ['pair 档 pairIds 缺失', { visibility: 'pair', pairIds: null }, false],
+  ['private 档本人', { visibility: 'private', authorId: 'openid-a' }, true],
+  ['private 档他人', { visibility: 'private' }, false],
+  ['未知档位', { visibility: 'public' }, false],
+  ['记录为 null', null, false]
+]
+
+describe.each(Object.entries(COPIES))('visibleTo（%s 副本）', (_name, vis) => {
+  test.each(matrix)('%s：%s', (_label, over, expected) => {
+    const record = over === null ? null : { ...base, ...over }
+    expect(vis.visibleTo(record, openid)).toBe(expected)
+  })
+
+  test('isVisible：作者已退出/被移除时不可见（spec 4.2）', () => {
+    expect(vis.isVisible({ ...base, visibility: 'family' }, openid, ['openid-a', 'openid-b'])).toBe(true)
+    expect(vis.isVisible({ ...base, visibility: 'family' }, openid, ['openid-a'])).toBe(false)
+  })
+})
+
+test('所有副本的导出接口一致', () => {
+  const keys = Object.values(COPIES).map(c => Object.keys(c).sort().join(','))
+  expect(new Set(keys).size).toBe(1)
+})
+
+// ---- 集成矩阵：4.6 过滤落到每一个读函数（T18）----
+
 jest.mock('wx-server-sdk', () => require('./helpers/wx-server-sdk'), { virtual: true })
 
 const sdk = require('./helpers/wx-server-sdk')
@@ -45,21 +93,23 @@ function record (id, over = {}) {
 //   r-pair     pair 快照 [a,b]（当前搭档）→ 仅 a/b 可见
 //   r-pair-old pair 快照 [a,x]（旧搭档，已被移除）→ 仅 a 可见（b 看不到 = 重指语义）
 //   r-priv     private，女友发 → 仅女友可见
+//   r-left     family，但作者是被移除成员 → 对谁都不可见（spec 4.2）
 const records = () => [
   record('r-fam', { authorId: 'openid-b', visibility: 'family', participantIds: ['openid-a', 'openid-c'] }),
   record('r-pair', { authorId: 'openid-b', visibility: 'pair', pairIds: ['openid-a', 'openid-b'] }),
   record('r-pair-old', { authorId: 'openid-a', visibility: 'pair', pairIds: ['openid-a', 'openid-x'] }),
-  record('r-priv', { authorId: 'openid-b', visibility: 'private' })
+  record('r-priv', { authorId: 'openid-b', visibility: 'private' }),
+  record('r-left', { authorId: 'openid-x', visibility: 'family' })
 ]
 
-function reset (openid = 'openid-a', { withRecords = true } = {}) {
+function reset (openid = 'openid-a') {
   sdk.__reset({
     openid,
     collections: {
       circles: [{ ownerId: 'openid-a', pairIds: ['openid-a', 'openid-b'], createdAt: new Date() }],
       members: members.map(m => ({ ...m })),
       places: [{ _id: 'p-1', poiId: 'POI-1', name: '外婆家', type: 'restaurant', location: null, coverFileID: null, createdBy: 'openid-a', createdAt: new Date() }],
-      records: withRecords ? records().map(r => ({ ...r })) : []
+      records: records().map(r => ({ ...r }))
     }
   })
 }
@@ -67,22 +117,22 @@ function reset (openid = 'openid-a', { withRecords = true } = {}) {
 describe.each([
   ['listFeed', (event) => listFeed.main(event), (result) => result.records],
   ['getPlaceDetail', (event) => getPlaceDetail.main({ placeId: 'p-1', ...event }), (result) => result.place && result.records]
-])('%s：可见性过滤（spec 4.6）', (name, call, pick) => {
-  test('圈主 a：family + 两条 pair（含旧搭档快照），看不到女友的 private', async () => {
+])('%s：可见性过滤（spec 4.6 + 4.2）', (name, call, pick) => {
+  test('圈主 a：family + 两条 pair（含旧搭档快照），看不到女友的 private 与退出作者的记录', async () => {
     reset('openid-a')
-    const visible = pick(await call({})) || []
+    const visible = pick(await call({}))
     expect(visible.map(r => r._id).sort()).toEqual(['r-fam', 'r-pair', 'r-pair-old'])
   })
 
-  test('搭档 b：family + 当前 pair；看不到旧搭档 pair（重指语义）与别人的 private', async () => {
+  test('搭档 b：family + 当前 pair + 自己的 private；看不到旧搭档 pair（重指语义）', async () => {
     reset('openid-b')
-    const visible = pick(await call({})) || []
+    const visible = pick(await call({}))
     expect(visible.map(r => r._id).sort()).toEqual(['r-fam', 'r-pair', 'r-priv'])
   })
 
   test('普通成员 c：只有 family', async () => {
     reset('openid-c')
-    const visible = pick(await call({})) || []
+    const visible = pick(await call({}))
     expect(visible.map(r => r._id)).toEqual(['r-fam'])
   })
 
@@ -108,19 +158,19 @@ describe('listFeed', () => {
     const result = await listFeed.main({})
     // a 可见：r-fam / r-pair / r-pair-old + 补记（r-priv 是女友的仅自己档，看不到）
     expect(result.records).toHaveLength(4)
-    // 整体按 happenedAt 倒序；补记（happenedAt 昨天且时间戳最小）必排最末
+    // 整体按时间倒序；补记（happenedAt 昨天且时间戳最小）必排最末
     const times = result.records.map(r => r.happenedAt.getTime())
     expect(times).toEqual([...times].sort((a, b) => b - a))
     expect(result.records[3]._id).toBe('r-backfill')
   })
 
-  test('服务端 join 作者/参与者昵称头像，前端无二次请求（spec 5.1）', async () => {
+  test('服务端 join 作者/参与者昵称头像与地点（前端无二次请求，spec 5.1）', async () => {
     reset('openid-a')
     const result = await listFeed.main({})
     const fam = result.records.find(r => r._id === 'r-fam')
     expect(fam.author).toEqual({ openid: 'openid-b', nickname: '女友', avatarUrl: 'cloud://b.png' })
     expect(fam.participants.map(p => p.nickname)).toEqual(['我', '妈妈'])
-    // 参与者含已移除成员时仍展示其昵称头像（记录保留，ADR 0002）
+    expect(fam.place).toEqual({ name: '外婆家', type: 'restaurant' })
     const pairOld = result.records.find(r => r._id === 'r-pair-old')
     expect(pairOld.author.nickname).toBe('我')
   })
@@ -135,7 +185,7 @@ describe('listFeed', () => {
     expect(result.records.map(r => r._id)).not.toContain('r-other-place')
   })
 
-  test('before 游标：只返回 happenedAt 早于游标的记录（翻页）', async () => {
+  test('before 游标：只返回 happenedAt 不晚于游标的记录（翻页）', async () => {
     reset('openid-a')
     const cursor = new Date(now - 1000)
     const result = await listFeed.main({ before: cursor.toISOString() })
@@ -170,14 +220,15 @@ describe('getRecord', () => {
     ['pair 记录非搭档不可看', 'openid-c', 'r-pair', false],
     ['旧搭档快照新搭档不可看', 'openid-b', 'r-pair-old', false],
     ['private 仅作者可看', 'openid-b', 'r-priv', true],
-    ['private 他人不可看', 'openid-a', 'r-priv', false]
-  ])('%s：%s', async (_name, openid, recordId, ok) => {
+    ['private 他人不可看', 'openid-a', 'r-priv', false],
+    ['退出作者的记录谁都不可看', 'openid-a', 'r-left', false]
+  ])('%s', async (_name, openid, recordId, ok) => {
     reset(openid)
     const result = await getRecord.main({ recordId })
     if (ok) {
       expect(result.code).toBeUndefined()
       expect(result.record._id).toBe(recordId)
-      expect(result.record.author.nickname).toBeTruthy()
+      expect(result.author.nickname).toBeTruthy()
     } else {
       expect(result.code).toBe('NOT_VISIBLE')
     }

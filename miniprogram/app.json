@@ -3,7 +3,8 @@
     "pages/index/index",
     "pages/profile/profile",
     "pages/onboarding/onboarding",
-    "pages/publish/publish"
+    "pages/publish/publish",
+    "pages/detail/detail"
   ],
   "requiredPrivateInfos": [
     "getLocation",

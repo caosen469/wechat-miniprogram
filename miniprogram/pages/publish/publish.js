@@ -7,14 +7,8 @@
 const { callApi } = require('../../services/api')
 const { mergeMedia, LIMITS } = require('../../services/mediaRules')
 const { tencentMapKey } = require('../../config/index')
-
-// 地点类型（spec 4.4），与云函数 PLACE_TYPES 对应
-const TYPE_OPTIONS = [
-  { value: 'restaurant', label: '餐厅' },
-  { value: 'attraction', label: '景点' },
-  { value: 'accommodation', label: '住宿' },
-  { value: 'other', label: '其他' }
-]
+const { TYPE_OPTIONS, typeLabelOf } = require('../../services/placeTypes')
+const { gradeOf } = require('../../services/rating')
 
 // 可见范围三档（spec 4.6；pair 需圈主已指定另一半，未指定时禁选）
 const VISIBILITY_OPTIONS = [
@@ -24,13 +18,6 @@ const VISIBILITY_OPTIONS = [
 ]
 
 const randId = () => Math.random().toString(36).slice(2, 10)
-
-// 星级 → 情绪档位（spec 3：由评分映射，不单独录入）
-const gradeOf = rating =>
-  rating >= 4 ? '宝藏' : rating === 3 ? '还行' : rating > 0 ? '踩雷' : ''
-
-const typeLabelOf = value =>
-  (TYPE_OPTIONS.find(t => t.value === value) || {}).label || ''
 
 // 临时文件扩展名 → 云存储路径扩展名（视频统一 mp4，图片统一 jpg）
 const extOf = item => (item.type === 'video' ? 'mp4' : 'jpg')

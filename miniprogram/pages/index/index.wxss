@@ -1,33 +1,149 @@
-.container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 120rpx 48rpx;
+.page {
+  padding: 24rpx 32rpx 160rpx; /* 底部给 FAB 让位 */
+  min-height: 100vh;
+  box-sizing: border-box;
 }
 
 .title {
   font-size: 48rpx;
   font-weight: 600;
-  margin-bottom: 16rpx;
+  margin: 120rpx 0 16rpx;
+  text-align: center;
 }
 
 .subtitle {
   color: #999999;
-  margin-bottom: 96rpx;
+  margin-bottom: 48rpx;
+  text-align: center;
 }
 
 .test-btn {
   width: 100%;
 }
 
-.cloud-result {
-  margin-top: 32rpx;
-  padding: 24rpx;
+/* 空状态 = 最小引导（spec 6.2） */
+.empty {
+  padding-top: 200rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.empty-title {
+  color: #999999;
+  font-size: 30rpx;
+  margin-bottom: 48rpx;
+}
+
+.empty-btn {
+  width: 320rpx;
+}
+
+/* 简版记录流水（T16） */
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.card {
+  display: flex;
   background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  gap: 24rpx;
+}
+
+.cover {
+  width: 180rpx;
+  height: 180rpx;
   border-radius: 12rpx;
+  flex-shrink: 0;
+}
+
+.cover-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f0e8;
+  font-size: 56rpx;
+}
+
+.info {
+  flex: 1;
+  min-width: 0; /* 允许文字列内截断 */
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.place-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.place {
+  font-size: 32rpx;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grade {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: #8c6239;
+  background-color: rgba(140, 98, 57, 0.1);
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+}
+
+.stars {
+  color: #e6a23c;
   font-size: 26rpx;
-  color: #666666;
-  word-break: break-all;
+  letter-spacing: 4rpx;
+}
+
+.text {
+  font-size: 28rpx;
+  color: #444444;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  color: #999999;
+  font-size: 24rpx;
+  margin-top: auto;
+}
+
+.avatar {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 18rpx;
+  flex-shrink: 0;
+}
+
+.tip {
+  text-align: center;
+  color: #999999;
+  font-size: 26rpx;
+  padding: 48rpx 0;
+}
+
+.feed-error {
+  text-align: center;
+  color: #c45656;
+  font-size: 26rpx;
+  padding: 32rpx 0;
 }
 
 /* 右下角常驻打卡按钮（spec 6.2） */
