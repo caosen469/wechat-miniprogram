@@ -4,6 +4,7 @@ Page({
   data: {
     checking: true, // 冷启动身份检查中
     checkFailed: false,
+    checkError: '',
     me: null,
     cloudResult: '',
     testing: false
@@ -28,8 +29,12 @@ Page({
       getApp().globalData.bootstrap = result
       this.setData({ me: result.me, checking: false })
     } catch (err) {
-      // bootstrap 失败不阻断：留在本页给重试入口
-      this.setData({ checking: false, checkFailed: true })
+      // bootstrap 失败不阻断：留在本页给重试入口，并展示真实错误便于排查
+      this.setData({
+        checking: false,
+        checkFailed: true,
+        checkError: err.errMsg || err.message || String(err)
+      })
     }
   },
 

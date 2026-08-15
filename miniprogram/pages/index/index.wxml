@@ -3,7 +3,7 @@
 
   <block wx:elif="{{checkFailed}}">
     <view class="title">身份检查失败</view>
-    <view class="subtitle">请检查网络后重试</view>
+    <view class="subtitle">{{checkError}}</view>
     <button class="test-btn" type="primary" bindtap="checkMembership">重试</button>
   </block>
 
