@@ -27,7 +27,7 @@ const db = cloud.database()
 // ---- 环境配置：模板过审后填到这里（前端同步填 miniprogram/config/index.js）----
 const config = {
   // 公共模板库「内容提醒/家庭内容提醒」类模板的 id；留空 = 降级不发
-  templateId: '',
+  templateId: 'oi62Bc-dTyEoVPvDA3dNjNSEgeryW4Y6g7PZEeeKIfE',
   // 聚合等待（毫秒）：须 < 云函数超时（60s）留出查库+发送余量
   aggregateWindowMs: 58 * 1000,
   // 体验版用 trial 才能收到推送；正式发布后改 formal

@@ -9,5 +9,5 @@
 module.exports = {
   env: '',
   tencentMapKey: '',
-  subscribeTemplateId: ''
+  subscribeTemplateId: 'oi62Bc-dTyEoVPvDA3dNjNSEgeryW4Y6g7PZEeeKIfE'
 }
