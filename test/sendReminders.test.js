@@ -61,21 +61,26 @@ describe('sendReminders（提醒推送，spec 8.1）', () => {
     const msg = sdk.__state.sentMessages[0]
     expect(msg.templateId).toBe('TMPL-1')
     expect(msg.page).toBe('pages/detail/detail?recordId=r-1')
+    // 「新日志提醒」模板字段：thing1=日志作者，thing2=日志内容（地点：首句），time3=发布时间
     expect(msg.data.thing1).toBe('阿曹')
-    expect(msg.data.thing2).toBe('外婆家（湖滨银泰店）')
-    expect(msg.data.thing3).toBe('这次排队半小时，值得！')
+    expect(msg.data.thing2).toContain('外婆家（湖滨银泰店）')
+    expect(msg.data.thing2).toContain('这次排队半小时')
+    expect(msg.data.time3).toMatch(/^\d{4}年\d{1,2}月\d{1,2}日 \d{2}:\d{2}$/)
   })
 
-  test('吐槽首句截断：取首个句末标点，thing 字段 ≤20 字；空吐槽给兜底文案', async () => {
+  test('吐槽首句截断：thing2 整体 ≤20 字（地点：首句）；空吐槽给兜底文案', async () => {
     seed(familyRecord({
       text: '这是一段特别长的吐槽，第一句就超过了二十个字的模板字段上限，必须截断。第二句不该出现。'
     }))
     await sendReminders.main({ recordId: 'r-1' })
-    expect(sdk.__state.sentMessages[0].data.thing3).toBe('这是一段特别长的吐槽，第一句就超过了二十')
+    const thing2 = sdk.__state.sentMessages[0].data.thing2
+    expect(thing2.length).toBeLessThanOrEqual(20)
+    expect(thing2.startsWith('外婆家（湖滨银泰店）')).toBe(true)
+    expect(thing2).not.toContain('第二句')
 
     seed(familyRecord({ text: '' }))
     await sendReminders.main({ recordId: 'r-1' })
-    expect(sdk.__state.sentMessages[0].data.thing3).toBe('点击查看')
+    expect(sdk.__state.sentMessages[0].data.thing2).toContain('点击查看')
   })
 
   test('private 档：不推任何人的', async () => {
@@ -174,11 +179,11 @@ describe('sendReminders（提醒推送，spec 8.1）', () => {
     expect(sdk.__state.sentMessages).toHaveLength(0)
   })
 
-  test('地点文档已悬空：thing2 用占位文案，不因空字段 47003 丢推送', async () => {
+  test('地点文档已悬空：thing2 用占位地点兜底，不因空字段 47003 丢推送', async () => {
     seed(familyRecord({ placeId: 'p-gone' }))
     const result = await sendReminders.main({ recordId: 'r-1' })
     expect(result.sent).toBe(2)
-    expect(sdk.__state.sentMessages[0].data.thing2).toBe('一个打卡地点')
+    expect(sdk.__state.sentMessages[0].data.thing2).toContain('一个打卡地点')
   })
 
   test('额度耗尽（43101）等发送失败：静默跳过该人，不影响其他人，不报错', async () => {

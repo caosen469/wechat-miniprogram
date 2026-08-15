@@ -16,7 +16,7 @@
 // 窗口边界：等待 58s 略短于判定窗口 60s（云函数超时上限 60s 留不出余量），
 // 58–60 秒间隔连发的两条可能都推——宁可边界多一条，不丢通知。
 //
-// 降级（spec 10.3 预设路径）：「内容提醒」类模板审核不过时 templateId 留空，
+// 降级（spec 10.3 预设路径）：提醒类模板审核不过时 templateId 留空，
 // 本函数直接跳过——纯红点形态上线，推送代码留接口，过审后填 id 即启用。
 const cloud = require('wx-server-sdk')
 
@@ -26,8 +26,8 @@ const db = cloud.database()
 
 // ---- 环境配置：模板过审后填到这里（前端同步填 miniprogram/config/index.js）----
 const config = {
-  // 公共模板库「内容提醒/家庭内容提醒」类模板的 id；留空 = 降级不发
-  templateId: 'oi62Bc-dTyEoVPvDA3dNjNSEgeryW4Y6g7PZEeeKIfE',
+  // 公共模板库「新日志提醒」（备忘录类目）模板 id；留空 = 降级不发
+  templateId: 'SrxJDhkAa9CZIDsHCwB3UdijgXc3H-cFaNFAn9qbpY8',
   // 聚合等待（毫秒）：须 < 云函数超时（60s）留出查库+发送余量
   aggregateWindowMs: 58 * 1000,
   // 体验版用 trial 才能收到推送；正式发布后改 formal
@@ -64,23 +64,31 @@ function pickRecipients (record, activeMembers) {
   return pool.filter(id => activeOnids.has(id))
 }
 
-// family 文案：作者昵称 + 地点名 + 吐槽首句（spec 8.1）
-// 注：字段名 thing1/2/3 是接口占位，模板过审后按实际字段名调整；
-// 微信对空 thing 字段报 47003，缺失信息用占位文案兜底
+// family 文案（spec 8.1：作者昵称 + 地点名 + 吐槽首句）映射到「新日志提醒」模板：
+//   thing1 = 日志作者；thing2 = 日志内容（地点名：首句，整体 ≤20 字截断）；
+//   time3 = 发布时间（time 类字段，「YYYY年M月D日 HH:mm」格式）。
+// 微信对空 thing 字段报 47003，缺失信息用占位文案兜底；换模板时按实际字段名调整这里
+function formatPublishTime (date) {
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return ''
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 function familyData (author, placeName, record) {
   return {
     thing1: cut(author && author.nickname) || '你的家人',
-    thing2: cut(placeName) || '一个打卡地点',
-    thing3: firstSentence(record.text)
+    thing2: cut(`${placeName || '一个打卡地点'}：${firstSentence(record.text)}`),
+    time3: formatPublishTime(record.createdAt)
   }
 }
 
 // pair 模糊文案（spec 8.1）：不带地点不带摘要
-function pairData () {
+function pairData (record) {
   return {
     thing1: '你的另一半',
     thing2: '发了一条仅你可见的动态',
-    thing3: '点击查看'
+    time3: formatPublishTime(record.createdAt)
   }
 }
 
@@ -161,7 +169,7 @@ exports.main = async (event) => {
           templateId: config.templateId,
           page: `pages/detail/detail?recordId=${event.recordId}`,
           data: record.visibility === 'pair'
-            ? pairData()
+            ? pairData(record)
             : familyData(author, placeName, record),
           miniprogramState: config.miniprogramState,
           lang: 'zh_CN'
