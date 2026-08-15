@@ -118,7 +118,7 @@ describe('listFeed（简版足迹流水）', () => {
 
   test('after 游标 + limit：未读超出单页上限时由前端提示余量', async () => {
     const many = Array.from({ length: 5 }, (_, i) =>
-      record({ _id: `r-${i}`, createdAt: hoursAgo(i + 1) }))
+      record({ _id: `r-${i}`, createdAt: hoursAgo(i + 1), happenedAt: hoursAgo(i + 1) }))
     sdk.__reset(seed(many))
     const result = await listFeed.main({ after: hoursAgo(24).toISOString(), limit: 3 })
     expect(result.records).toHaveLength(3)
@@ -126,8 +126,11 @@ describe('listFeed（简版足迹流水）', () => {
   })
 
   test('limit 截断（默认 20，上限 50）', async () => {
+    // happenedAt 必须随 i 拉开：默认值 hoursAgo(1) 每次求值有毫秒差，
+    // 排序又以 happenedAt 优先——Date.now() 中途跳毫秒会让后构造的记录
+    // 整批排到前面，期望序列随机错位（既有抖动的根因）
     const many = Array.from({ length: 25 }, (_, i) =>
-      record({ _id: `r-${i}`, createdAt: hoursAgo(i + 1) }))
+      record({ _id: `r-${i}`, createdAt: hoursAgo(i + 1), happenedAt: hoursAgo(i + 1) }))
     sdk.__reset(seed(many))
 
     const byDefault = await listFeed.main({})
