@@ -1,0 +1,9 @@
+{
+  "name": "getRecord",
+  "version": "1.0.0",
+  "description": "记录详情（可见者才返回）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -1,7 +1,9 @@
-// 发布页·简化版（spec 6.5 变体 C，T15）：九宫格媒体打头 + ≤500 字吐槽 + 5 星点选（必填）
-// + 地点内联轻选三通道（POI 搜索 / 当前位置反查 / 手动新地点）。
-// 可见范围/参与者/语音/补记时间不做：visibility 恒 'family'（T18/T20 升级）。
-// 草稿与弱网队列不做（T22/T23）：发布时直传云存储，拿 fileID 后提交 publishRecord。
+// 发布页（spec 6.5 变体 C「拍摄优先」，T15 + T18）：
+// 九宫格媒体打头 + ≤500 字吐槽 + 5 星点选（必填）
+// + 地点内联轻选三通道（POI 搜索 / 当前位置反查 / 手动新地点）
+// + 折叠区「＋更多」默认收起（参与者多选 / 可见范围 / 补记时间）
+// + 底栏发布 + 可见范围快捷入口（三选一弹层，防「仅我俩」手滑）。
+// 语音不做（T20）；草稿与弱网队列不做（T22/T23）：发布时直传云存储。
 const { callApi } = require('../../services/api')
 const { mergeMedia, LIMITS } = require('../../services/mediaRules')
 const { tencentMapKey } = require('../../config/index')
@@ -12,6 +14,13 @@ const TYPE_OPTIONS = [
   { value: 'attraction', label: '景点' },
   { value: 'accommodation', label: '住宿' },
   { value: 'other', label: '其他' }
+]
+
+// 可见范围三档（spec 4.6；pair 需圈主已指定另一半，未指定时禁选）
+const VISIBILITY_OPTIONS = [
+  { value: 'family', label: '家庭圈', icon: '🏠', desc: '圈里所有人可见' },
+  { value: 'pair', label: '仅我俩', icon: '💞', desc: '只有你和另一半可见' },
+  { value: 'private', label: '仅自己', icon: '🔒', desc: '只有你自己可见' }
 ]
 
 const randId = () => Math.random().toString(36).slice(2, 10)
@@ -26,6 +35,8 @@ const typeLabelOf = value =>
 // 临时文件扩展名 → 云存储路径扩展名（视频统一 mp4，图片统一 jpg）
 const extOf = item => (item.type === 'video' ? 'mp4' : 'jpg')
 
+const pad = n => String(n).padStart(2, '0')
+
 Page({
   data: {
     media: [], // [{path, type: 'image'|'video', duration?}]
@@ -36,13 +47,112 @@ Page({
     place: null, // {poiId: string|null, name, type, location: {latitude, longitude}|null, typeLabel}
     totalMax: LIMITS.TOTAL_MAX,
     typeOptions: TYPE_OPTIONS,
-    sheet: '', // '' | 'type'（POI 选定后选类型）| 'manual'（手动新地点）
+    sheet: '', // '' | 'type'（POI 选定后选类型）| 'manual'（手动新地点）| 'vis'（可见范围三选一）
     pendingPlace: null, // POI 通道选定、待选类型的地点
     pendingName: '',
     pendingType: 'restaurant',
     manualName: '',
     manualType: 'restaurant',
-    submitting: false
+    submitting: false,
+    // ---- 折叠区「＋更多」（默认收起，spec 6.5）----
+    moreOpen: false,
+    visibility: 'family',
+    visibilityLabel: '家庭圈',
+    visibilityIcon: '🏠',
+    visibilityOptions: VISIBILITY_OPTIONS,
+    pairDesignated: false, // 圈主已指定另一半
+    pairReady: false, // 且自己就是二人组成员，才可选「仅我俩」
+    participantOptions: [], // 在圈成员（不含自己）{openid, nickname, avatarUrl, on}
+    // 补记时间：默认现在；timeCustom 为真时用 customDate/customTime（本地时间）
+    timeCustom: false,
+    customDate: '',
+    customTime: ''
+  },
+
+  onLoad () {
+    // 成员/另一半状态来自 bootstrap（index onShow 已拉过则直接用，避免二次请求）
+    const boot = getApp().globalData.bootstrap
+    if (boot && boot.circle) {
+      this.applyBootstrap(boot)
+    } else {
+      // 冷启动直入本页等边界：兜底拉一次
+      callApi('bootstrap').then(this.applyBootstrap.bind(this)).catch(() => {})
+    }
+  },
+
+  applyBootstrap (boot) {
+    const me = boot.me
+    const pairIds = (boot.circle.pairIds || [])
+    this.setData({
+      // 「仅我俩」只面向二人组成员：不在 pairIds 里的成员发了也看不见（spec 4.6）
+      pairDesignated: pairIds.length === 2,
+      pairReady: pairIds.length === 2 && pairIds.includes(me.openid),
+      participantOptions: (boot.members || [])
+        .filter(m => m.status === 'active' && m.openid !== me.openid)
+        .map(m => ({ openid: m.openid, nickname: m.nickname, avatarUrl: m.avatarUrl, on: false }))
+    })
+  },
+
+  // ---- 折叠区「＋更多」 ----
+
+  onToggleMore () {
+    this.setData({ moreOpen: !this.data.moreOpen })
+  },
+
+  // 三选一弹层（底栏快捷入口与折叠区共用，spec 6.5：弹层防「仅我俩」手滑）
+  onOpenVisibility () {
+    this.setData({ sheet: 'vis' })
+  },
+
+  onPickVisibility (e) {
+    const value = e.currentTarget.dataset.value
+    if (value === 'pair' && !this.data.pairReady) {
+      wx.showToast({
+        title: this.data.pairDesignated ? '「仅我俩」只面向圈主指定的二人组' : '圈主还没指定另一半',
+        icon: 'none'
+      })
+      return
+    }
+    const option = VISIBILITY_OPTIONS.find(o => o.value === value)
+    this.setData({
+      visibility: value,
+      visibilityLabel: option.label,
+      visibilityIcon: option.icon,
+      sheet: ''
+    })
+  },
+
+  // 参与者多选（可跳过，spec 4.5）
+  onToggleParticipant (e) {
+    const openid = e.currentTarget.dataset.openid
+    this.setData({
+      participantOptions: this.data.participantOptions.map(p => ({
+        ...p,
+        on: p.openid === openid ? !p.on : p.on
+      }))
+    })
+  },
+
+  // 补记时间（默认现在，可改）：点「现在」切到自定义，默认今天/当前时间
+  onEnableCustomTime () {
+    const d = new Date()
+    this.setData({
+      timeCustom: true,
+      customDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+      customTime: `${pad(d.getHours())}:${pad(d.getMinutes())}`
+    })
+  },
+
+  onPickCustomDate (e) {
+    this.setData({ customDate: e.detail.value, timeCustom: true })
+  },
+
+  onPickCustomTime (e) {
+    this.setData({ customTime: e.detail.value, timeCustom: true })
+  },
+
+  onResetTime () {
+    this.setData({ timeCustom: false, customDate: '', customTime: '' })
   },
 
   // ---- 媒体 ----
@@ -233,6 +343,18 @@ Page({
   },
 
   // ---- 发布 ----
+  // 补记时间 → 时间戳（本地时间构造；不传 = 现在，由服务端定）
+  happenedAtTimestamp () {
+    if (!this.data.timeCustom) return undefined
+    const [y, m, d] = this.data.customDate.split('-').map(Number)
+    const [hh, mm] = (this.data.customTime || '00:00').split(':').map(Number)
+    const ts = new Date(y, m - 1, d, hh, mm).getTime()
+    if (isNaN(ts) || ts > Date.now()) {
+      return null // 非法/未来时间，交给调用方拦截
+    }
+    return ts
+  },
+
   async onPublish () {
     if (this.data.submitting) return
     if (this.data.rating === 0) {
@@ -241,6 +363,11 @@ Page({
     }
     if (!this.data.place) {
       wx.showToast({ title: '请选择打卡地点', icon: 'none' })
+      return
+    }
+    const happenedAt = this.happenedAtTimestamp()
+    if (happenedAt === null) {
+      wx.showToast({ title: '补记时间不能是未来', icon: 'none' })
       return
     }
 
@@ -275,7 +402,10 @@ Page({
         },
         media,
         text: this.data.text.trim(),
-        rating: this.data.rating
+        rating: this.data.rating,
+        visibility: this.data.visibility,
+        participantIds: this.data.participantOptions.filter(p => p.on).map(p => p.openid),
+        ...(happenedAt !== undefined ? { happenedAt } : {})
       })
 
       wx.hideLoading()

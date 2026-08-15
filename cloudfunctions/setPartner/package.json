@@ -1,0 +1,9 @@
+{
+  "name": "setPartner",
+  "version": "1.0.0",
+  "description": "圈主指定/更换另一半",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

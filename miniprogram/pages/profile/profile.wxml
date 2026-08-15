@@ -80,10 +80,42 @@
       </block>
     </view>
 
+    <!-- 圈主专属：另一半 -->
+    <view wx:if="{{isOwner}}" class="card">
+      <view class="card-title">另一半</view>
+      <view class="card-desc">
+        「仅我俩」档记录只发给你和另一半。
+        {{partnerNickname ? '重指后，新搭档看不到旧的「仅我俩」记录。' : '还没指定，指定后才能发布「仅我俩」档记录。'}}
+      </view>
+      <view class="partner-row" bindtap="onStartPickPartner">
+        <view class="partner-name">{{partnerNickname || '未指定'}}</view>
+        <view class="link-btn">{{partnerNickname ? '更换' : '指定'}}</view>
+      </view>
+    </view>
+
     <!-- 退出家庭圈：圈主无此项（spec 6.6） -->
     <view class="card">
       <view wx:if="{{!isOwner}}" class="leave-btn" bindtap="onLeaveCircle">退出家庭圈</view>
       <view wx:else class="owner-note">圈主不可退出家庭圈</view>
     </view>
   </block>
+</view>
+
+<!-- 指定/更换另一半：从 active 成员（不含自己）中选 -->
+<view wx:if="{{partnerPicking}}" class="sheet-mask" bindtap="onClosePickPartner">
+  <view class="sheet" catchtap="onPickPartnerTap">
+    <view class="sheet-title">选择另一半</view>
+    <view
+      wx:for="{{partnerCandidates}}"
+      wx:key="openid"
+      class="partner-option"
+      bindtap="onPickPartner"
+      data-openid="{{item.openid}}"
+      data-name="{{item.nickname}}"
+    >
+      <image class="avatar avatar-sm" src="{{item.avatarUrl}}" mode="aspectFill" />
+      <view class="partner-option-name">{{item.nickname}}</view>
+      <view wx:if="{{item.nickname === partnerNickname}}" class="partner-now">当前</view>
+    </view>
+  </view>
 </view>

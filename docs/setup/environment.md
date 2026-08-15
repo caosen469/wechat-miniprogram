@@ -31,7 +31,19 @@
 | `hello` | `cloudfunctions/hello` | 环境健康检查（阶段 0） |
 | `bootstrap` | `cloudfunctions/bootstrap` | 冷启动鉴权：openid → 成员身份；不在圈返回 `{me: null}`（T14） |
 | `createCircle` | `cloudfunctions/createCircle` | 建圈：创建者即圈主，生成 `circles`/`members` 文档（T14） |
-| `publishRecord` | `cloudfunctions/publishRecord` | 发布记录（T15）：鉴权 + 媒体/字数/星级复核 + 新地点按 poiId 归并，建 `records`/`places` 文档 |
+| `publishRecord` | `cloudfunctions/publishRecord` | 发布记录（T15/T18）：鉴权 + 媒体/字数/星级复核 + 新地点按 poiId 归并 + 可见范围三档（pair 固化快照）+ 参与者 + 补记时间 |
+| `joinCircle` | `cloudfunctions/joinCircle` | 凭邀请码入圈（T17） |
+| `createInviteCode` | `cloudfunctions/createInviteCode` | 圈主生成邀请码，24h 有效（T17） |
+| `revokeInviteCode` | `cloudfunctions/revokeInviteCode` | 圈主作废邀请码（T17） |
+| `removeMember` | `cloudfunctions/removeMember` | 圈主移除成员（T17） |
+| `leaveCircle` | `cloudfunctions/leaveCircle` | 成员自退（圈主不可退）（T17） |
+| `updateProfile` | `cloudfunctions/updateProfile` | 改昵称/头像（T17） |
+| `setPartner` | `cloudfunctions/setPartner` | 圈主指定/更换另一半，只改 `circles.pairIds`（T18） |
+| `listFeed` | `cloudfunctions/listFeed` | 记录流水：可见性过滤 + happenedAt 倒序 + 服务端 join 昵称头像（T18） |
+| `getRecord` | `cloudfunctions/getRecord` | 记录详情：可见者才返回，不可见/不存在统一 `NOT_VISIBLE`（T18） |
+| `getPlaceDetail` | `cloudfunctions/getPlaceDetail` | 地点详情：`{place, records[]}` 可见性过滤（T18） |
+| `updateRecord` | `cloudfunctions/updateRecord` | 编辑记录：能看见就能编辑，pair 档以改动时二人组重固化快照（T18） |
+| `deleteRecord` | `cloudfunctions/deleteRecord` | 删除记录：能看见就能删除，媒体文件一并从云存储删除（T18） |
 
 > 云函数本地单测：仓库根目录 `npm test`（jest，mock `wx-server-sdk`，不需真实环境）。
 

@@ -1,0 +1,9 @@
+{
+  "name": "getPlaceDetail",
+  "version": "1.0.0",
+  "description": "地点详情（地点 + 可见记录列表）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

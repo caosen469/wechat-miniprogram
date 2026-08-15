@@ -1,7 +1,7 @@
 /* 发布页（T15）：沿用 onboarding 的暖色 token（bg #faf7f2 / 主色 #8c6239） */
 
 .publish {
-  padding: 32rpx 32rpx 160rpx;
+  padding: 32rpx 32rpx 200rpx; /* 底部留白避让固定底栏 */
   min-height: 100vh;
   box-sizing: border-box;
   background-color: #faf7f2;
@@ -177,12 +177,136 @@
   padding: 4rpx 16rpx;
 }
 
-/* ---- 发布按钮 ---- */
-.publish-btn {
+/* ---- 折叠区「＋更多」 ---- */
+.more-toggle {
+  margin-top: 24rpx;
+  font-size: 28rpx;
+  color: #8c6239;
+  padding: 8rpx 0;
+}
+
+.more {
+  background-color: #f9f9f7;
+  border-radius: 16rpx;
+  padding: 8rpx 24rpx;
+  margin-top: 12rpx;
+}
+
+.more-row {
+  padding: 24rpx 0;
+  border-bottom: 2rpx solid #efefec;
+}
+
+.more-row:last-child {
+  border-bottom: none;
+}
+
+.more-label {
+  font-size: 26rpx;
+  color: #999999;
+  margin-bottom: 12rpx;
+}
+
+.more-hint {
+  font-size: 26rpx;
+  color: #bbbbbb;
+}
+
+.more-value {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.more-reset {
+  font-size: 24rpx;
+  color: #8c6239;
+  padding: 8rpx 0 8rpx 16rpx;
+}
+
+.pickers {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.picker-val {
+  background-color: #ffffff;
+  border-radius: 12rpx;
+  padding: 12rpx 24rpx;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+/* ---- 底栏：可见范围快捷入口 + 发布 ---- */
+.bottom-bar {
   position: fixed;
   left: 32rpx;
   right: 32rpx;
   bottom: calc(32rpx + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.vis-entry {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 8rpx 12rpx;
+}
+
+.vis-entry-label {
+  font-size: 26rpx;
+  color: #333333;
+  font-weight: 600;
+}
+
+.vis-entry-sub {
+  font-size: 20rpx;
+  color: #999999;
+  margin-top: 4rpx;
+}
+
+/* 三选一弹层选项 */
+.vis-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 24rpx;
+  border: 2rpx solid #efefec;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.vis-option.on {
+  border-color: #8c6239;
+  background-color: rgba(140, 98, 57, 0.06);
+}
+
+.vis-option.disabled {
+  opacity: 0.45;
+}
+
+.vis-option-label {
+  font-size: 30rpx;
+  color: #333333;
+  font-weight: 600;
+}
+
+.vis-option-desc {
+  font-size: 24rpx;
+  color: #999999;
+  margin-top: 6rpx;
+}
+
+.vis-check {
+  font-size: 32rpx;
+  color: #8c6239;
+  font-weight: 700;
+}
+
+/* ---- 发布按钮 ---- */
+.publish-btn {
+  flex-grow: 1;
 }
 
 /* ---- 选点 sheet ---- */

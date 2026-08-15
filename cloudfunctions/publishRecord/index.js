@@ -1,5 +1,6 @@
-// publishRecord —— 发布回忆记录·简化版（spec 5.1、4.4/4.5 字段表，T15）。
-// 可见范围/参与者/语音/补记时间均不做：visibility 恒 'family'。
+// publishRecord —— 发布回忆记录（spec 5.1、4.4/4.5 字段表，T15 + T18）。
+// 可见范围三档：family（默认）/ pair（固化 circles.pairIds 创建时快照）/ private；
+// 参与者多选（须为 active 成员，不含作者）；补记时间 happenedAt（默认现在，拒绝未来）。
 // 新地点按 poiId 查重归并（手动地点 poiId=null 不参与自动归并）；
 // 媒体约束服务端复核（图 ≤9、视频 ≤3 且每段 ≤60s、合计 ≤12）。
 const cloud = require('wx-server-sdk')
@@ -18,6 +19,7 @@ const MEDIA_LIMITS = {
 const TEXT_MAX = 500
 const PLACE_NAME_MAX_LEN = 50
 const PLACE_TYPES = ['restaurant', 'attraction', 'accommodation', 'other']
+const VISIBILITIES = ['family', 'pair', 'private']
 
 function err (code, message) {
   // 异常统一返回 {code, message}（spec 5.2）
@@ -82,6 +84,53 @@ function validateNewPlace (newPlace) {
   return null
 }
 
+// 参与者须全部是 active 成员且不含作者（作者隐含，spec 4.5）
+function validateParticipantIds (participantIds, activeOpenids, authorOpenid) {
+  if (!Array.isArray(participantIds)) {
+    return '参与者格式不正确'
+  }
+  for (const id of participantIds) {
+    if (typeof id !== 'string' || !id) {
+      return '存在无效的参与者'
+    }
+    if (id === authorOpenid) {
+      return '参与者不用包含你自己'
+    }
+    if (!activeOpenids.includes(id)) {
+      return '参与者必须是在圈成员'
+    }
+  }
+  return null
+}
+
+// 补记时间：接受 Date/ISO 字符串/时间戳，拒绝未来（spec 4.5 happenedAt 可改、默认现在）
+function parseHappenedAt (value) {
+  if (value === undefined || value === null) {
+    return { date: new Date() }
+  }
+  const date = value instanceof Date ? value : new Date(value)
+  if (isNaN(date.getTime())) {
+    return { error: '补记时间无效' }
+  }
+  if (date.getTime() > Date.now() + 60 * 1000) {
+    return { error: '补记时间不能是未来' }
+  }
+  return { date }
+}
+
+// 封面派生规则（spec 4.4），publishRecord/updateRecord/deleteRecord 三个写路径统一：
+// 按 happenedAt 最新的一条「有图」记录的首图；无任何有图记录则 null。
+// 补记的旧时间记录不会覆盖更新的封面；无图记录不会清掉已有封面。
+function computeCover (records) {
+  const sorted = records.slice()
+    .sort((a, b) => new Date(b.happenedAt).getTime() - new Date(a.happenedAt).getTime())
+  for (const r of sorted) {
+    const image = (r.media || []).find(m => m && m.type === 'image' && m.fileID)
+    if (image) return image.fileID
+  }
+  return null
+}
+
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext()
 
@@ -92,6 +141,37 @@ exports.main = async (event) => {
   if (memberRes.data.length === 0) {
     return err('NOT_IN_CIRCLE', '你还不在家庭圈中')
   }
+
+  // ---- 可见范围三档（spec 4.5/4.6）----
+  const visibility = event.visibility === undefined ? 'family' : event.visibility
+  if (!VISIBILITIES.includes(visibility)) {
+    return err('VALIDATION_FAILED', '可见范围只能是家庭圈 / 仅我俩 / 仅自己')
+  }
+  let pairIds
+  if (visibility === 'pair') {
+    // pair 档固化 circles.pairIds 创建时快照（spec 4.5，重指不影响历史记录）
+    const circleRes = await db.collection('circles').limit(1).get()
+    pairIds = (circleRes.data[0] || {}).pairIds || []
+    if (pairIds.length !== 2) {
+      return err('VALIDATION_FAILED', '「仅我俩」需要圈主先在设置中指定另一半')
+    }
+    // 只有二人组成员能发 pair 档：否则作者自己都看不见这条记录（spec 4.6）
+    if (!pairIds.includes(OPENID)) {
+      return err('VALIDATION_FAILED', '「仅我俩」只面向圈主指定的二人组')
+    }
+  }
+
+  // ---- 参与者：从 active 成员中多选，可跳过（spec 4.5）----
+  const activeOpenids = (await db.collection('members')
+    .where({ status: 'active' })
+    .get()).data.map(m => m.openid)
+  const participantIds = event.participantIds === undefined ? [] : event.participantIds
+  const participantError = validateParticipantIds(participantIds, activeOpenids, OPENID)
+  if (participantError) return err('VALIDATION_FAILED', participantError)
+
+  // ---- 补记时间：默认现在，可改（spec 4.5）----
+  const happened = parseHappenedAt(event.happenedAt)
+  if (happened.error) return err('VALIDATION_FAILED', happened.error)
 
   // ---- 校验：媒体 / 文字 / 星级（服务端复核，spec 5.1）----
   const mediaError = validateMedia(event.media)
@@ -152,29 +232,33 @@ exports.main = async (event) => {
     return err('VALIDATION_FAILED', '请选择打卡地点')
   }
 
-  // ---- 建记录（spec 4.5 字段表；简化版固定值见文件头注释）----
+  // ---- 建记录（spec 4.5 字段表；pairIds 仅 pair 档固化快照）----
   const now = new Date()
   const record = {
     placeId: place._id,
     authorId: OPENID,
-    participantIds: [],
+    participantIds,
     media: event.media,
     text,
     audio: null,
     rating,
-    visibility: 'family',
-    happenedAt: now,
+    visibility,
+    ...(visibility === 'pair' ? { pairIds } : {}),
+    happenedAt: happened.date,
     collectionId: null,
     createdAt: now,
     updatedAt: now
   }
   const added = await db.collection('records').add({ data: record })
 
-  // ---- 封面顺带刷新：最新一条记录的首图（spec 4.4）----
-  const firstImage = event.media.find(m => m.type === 'image')
-  if (firstImage && place.coverFileID !== firstImage.fileID) {
+  // ---- 封面顺带刷新：最新一条「有图」记录的首图（spec 4.4；补记旧时间不覆盖）----
+  const placeRecords = (await db.collection('records')
+    .where({ placeId: place._id })
+    .get()).data
+  const cover = computeCover(placeRecords)
+  if (cover !== place.coverFileID) {
     await db.collection('places').doc(place._id).update({
-      data: { coverFileID: firstImage.fileID }
+      data: { coverFileID: cover }
     })
   }
 

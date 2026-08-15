@@ -1,0 +1,9 @@
+{
+  "name": "updateRecord",
+  "version": "1.0.0",
+  "description": "编辑记录（能看见就能编辑）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -1,7 +1,7 @@
 // wx-server-sdk 的最小内存版 mock，只覆盖本项目云函数用到的能力：
-//   cloud.init / cloud.getWXContext / cloud.database
+//   cloud.init / cloud.getWXContext / cloud.database / cloud.deleteFile
 //   db.collection(name).where(cond).get()/count()/update()、collection.add、collection.count、
-//   collection.doc(id).get()/update()、db.createCollection
+//   collection.doc(id).get()/update()/remove()、db.createCollection
 //   db.command 的 gt/and/or/neq（返回不透明对象，where 匹配时跳过命令字段，
 //   命令条件的查询结果用 __setCount 显式指定，用于测分支而非测查询语义）
 //   db.Geo.Point（记录经纬度，spec 4.4 location 字段）
@@ -15,7 +15,8 @@ const state = {
   collections: {}, // name -> docs[]
   openid: 'openid-a',
   counts: {}, // name -> total，覆盖该集合 where().count() 的返回值
-  seq: 0
+  seq: 0,
+  deletedFiles: [] // cloud.deleteFile 被调用的 fileID 累计（deleteRecord 测试断言用）
 }
 
 function notExists (name) {
@@ -26,9 +27,18 @@ function isPlainValue (v) {
   return v === null || ['string', 'number', 'boolean'].includes(typeof v)
 }
 
+const REMOVE = Symbol('remove')
+
 function applyUpdate (doc, data) {
-  // wx-server-sdk 的 update 是顶层字段合并，不是整体替换
-  Object.assign(doc, data)
+  // wx-server-sdk 的 update 是顶层字段合并，不是整体替换；
+  // _.remove() 标记对应真实 SDK 的字段删除
+  for (const key of Object.keys(data)) {
+    if (data[key] === REMOVE) {
+      delete doc[key]
+    } else {
+      doc[key] = data[key]
+    }
+  }
 }
 
 function makeQuery (docs, name) {
@@ -68,6 +78,12 @@ function makeQuery (docs, name) {
         async update ({ data }) {
           applyUpdate(target, data)
           return { stats: { updated: 1 } }
+        },
+        async remove () {
+          const i = all.indexOf(target)
+          if (i === -1) throw new Error(`document not exists: ${id}`)
+          all.splice(i, 1)
+          return { stats: { removed: 1 } }
         }
       }
     }
@@ -96,7 +112,8 @@ const db = {
     gt: v => ({ __cmd: 'gt', v }),
     neq: v => ({ __cmd: 'neq', v }),
     and: (...args) => ({ __cmd: 'and', args }),
-    or: (...args) => ({ __cmd: 'or', args })
+    or: (...args) => ({ __cmd: 'or', args }),
+    remove: () => REMOVE
   },
   Geo: {
     Point: class Point {
@@ -116,11 +133,17 @@ module.exports = {
   database () {
     return db
   },
+  // deleteRecord 删媒体用（spec 5.1）：记录被调用的 fileID 供测试断言
+  async deleteFile ({ fileList }) {
+    state.deletedFiles.push(...fileList)
+    return { fileList: fileList.map(fileID => ({ fileID, status: 0 })) }
+  },
   __reset ({ collections = {}, openid = 'openid-a', counts = {} } = {}) {
     state.collections = collections
     state.openid = openid
     state.counts = counts
     state.seq = 0
+    state.deletedFiles = []
   },
   __state: state
 }

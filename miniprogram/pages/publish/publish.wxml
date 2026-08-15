@@ -60,10 +60,56 @@
     <view wx:if="{{grade}}" class="grade-badge">{{grade}}</view>
   </view>
 
-  <!-- 5. 发布 -->
-  <button class="publish-btn" type="primary" bindtap="onPublish" disabled="{{submitting}}">
-    发布
-  </button>
+  <!-- 5. 折叠区「＋更多」默认收起（spec 6.5） -->
+  <view class="more-toggle" bindtap="onToggleMore">{{moreOpen ? '－ 收起' : '＋ 更多'}}</view>
+  <view wx:if="{{moreOpen}}" class="more">
+    <!-- 参与者多选（可跳过） -->
+    <view class="more-row">
+      <view class="more-label">同行的人</view>
+      <view class="chips" wx:if="{{participantOptions.length > 0}}">
+        <view
+          wx:for="{{participantOptions}}"
+          wx:key="openid"
+          class="chip {{item.on ? 'on' : ''}}"
+          bindtap="onToggleParticipant"
+          data-openid="{{item.openid}}"
+        >{{item.nickname}}</view>
+      </view>
+      <view wx:else class="more-hint">圈里还没有其他成员</view>
+    </view>
+
+    <!-- 可见范围：入口同底栏快捷入口，共用三选一弹层 -->
+    <view class="more-row" bindtap="onOpenVisibility">
+      <view class="more-label">可见范围</view>
+      <view class="more-value">{{visibilityLabel}} ›</view>
+    </view>
+
+    <!-- 补记时间：默认现在，可改 -->
+    <view class="more-row">
+      <view class="more-label">到访时间</view>
+      <view wx:if="{{!timeCustom}}" class="more-value" bindtap="onEnableCustomTime">现在（点此补记）</view>
+      <view wx:else class="pickers">
+        <picker mode="date" value="{{customDate}}" bindchange="onPickCustomDate">
+          <view class="picker-val">{{customDate || '选日期'}}</view>
+        </picker>
+        <picker mode="time" value="{{customTime}}" bindchange="onPickCustomTime">
+          <view class="picker-val">{{customTime || '00:00'}}</view>
+        </picker>
+        <view class="more-reset" bindtap="onResetTime">恢复现在</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 6. 底栏：发布 + 可见范围快捷入口（三选一弹层，spec 6.5） -->
+  <view class="bottom-bar">
+    <view class="vis-entry" bindtap="onOpenVisibility">
+      <view class="vis-entry-label">{{visibilityIcon}} {{visibilityLabel}}</view>
+      <view class="vis-entry-sub">可见范围</view>
+    </view>
+    <button class="publish-btn" type="primary" bindtap="onPublish" disabled="{{submitting}}">
+      发布
+    </button>
+  </view>
 </view>
 
 <!-- 选点 sheet：POI 选定后选类型 / 手动新地点 -->
@@ -104,6 +150,26 @@
         >{{item.label}}</view>
       </view>
       <button class="sheet-btn" type="primary" bindtap="onConfirmManualPlace">就打这里</button>
+    </block>
+
+    <!-- 可见范围三选一弹层（spec 6.5：弹层形式防「仅我俩」手滑） -->
+    <block wx:if="{{sheet === 'vis'}}">
+      <view class="sheet-title">这条记录谁能看？</view>
+      <view
+        wx:for="{{visibilityOptions}}"
+        wx:key="value"
+        class="vis-option {{visibility === item.value ? 'on' : ''}} {{item.value === 'pair' && !pairReady ? 'disabled' : ''}}"
+        bindtap="onPickVisibility"
+        data-value="{{item.value}}"
+      >
+        <view class="vis-option-main">
+          <view class="vis-option-label">{{item.icon}} {{item.label}}</view>
+          <view class="vis-option-desc">
+            {{item.value === 'pair' && !pairReady ? (pairDesignated ? '只面向圈主指定的二人组成员' : '圈主还没指定另一半，暂不可用') : item.desc}}
+          </view>
+        </view>
+        <view wx:if="{{visibility === item.value}}" class="vis-check">✓</view>
+      </view>
     </block>
   </view>
 </view>

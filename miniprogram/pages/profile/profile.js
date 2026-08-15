@@ -1,6 +1,6 @@
 // 设置页（tab 2「我的」，spec 6.6）：我的资料、成员列表与状态、
-// 圈主专属操作（邀请码/移除成员）、退出家庭圈（圈主无此项，注明不可退出）。
-// 「指定另一半」留待 T18。数据每次 onShow 调 bootstrap 拉最新（成员/状态常变）。
+// 圈主专属操作（邀请码/移除成员/指定另一半）、退出家庭圈（圈主无此项）。
+// 数据每次 onShow 调 bootstrap 拉最新（成员/状态常变）。
 const { callApi } = require('../../services/api')
 
 const randId = () => Math.random().toString(36).slice(2, 10)
@@ -27,6 +27,10 @@ Page({
     // 圈主：邀请码
     inviteCode: null, // { code, expiresAt }
     generating: false,
+    // 圈主：指定/更换另一半（spec 6.6）
+    partnerNickname: '', // 空串 = 未指定
+    partnerPicking: false,
+    partnerCandidates: [], // active 成员（不含自己）
     // 危险操作
     leaving: false
   },
@@ -52,10 +56,16 @@ Page({
   },
 
   applyBootstrap (result) {
+    // 另一半 = circles.pairIds 中不是自己的那位（spec 4.1）
+    const pairIds = (result.circle && result.circle.pairIds) || []
+    const partnerOpenid = pairIds.find(id => id !== result.me.openid)
+    const partner = partnerOpenid &&
+      (result.members || []).find(m => m.openid === partnerOpenid)
     this.setData({
       loading: false,
       me: result.me,
       isOwner: result.me.role === 'owner',
+      partnerNickname: partner ? partner.nickname : '',
       members: (result.members || []).map(m => ({
         _id: m._id,
         nickname: m.nickname,
@@ -193,6 +203,48 @@ Page({
         try {
           await callApi('removeMember', { memberId: id })
           wx.showToast({ title: '已移除', icon: 'success' })
+          this.loadBootstrap()
+        } catch (err) {
+          wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+        }
+      }
+    })
+  },
+
+  // ---- 圈主：指定/更换另一半（setPartner，spec 6.6） ----
+
+  onStartPickPartner () {
+    const candidates = this.data.members
+      .filter(m => m.status === 'active' && m.openid !== this.data.me.openid)
+      .map(m => ({ openid: m.openid, nickname: m.nickname, avatarUrl: m.avatarUrl }))
+    if (candidates.length === 0) {
+      wx.showToast({ title: '圈里还没有其他成员，先生成邀请码', icon: 'none' })
+      return
+    }
+    this.setData({ partnerPicking: true, partnerCandidates: candidates })
+  },
+
+  onClosePickPartner () {
+    this.setData({ partnerPicking: false })
+  },
+
+  onPickPartnerTap () {
+    // catchtap 阻止冒泡到遮罩，无行为
+  },
+
+  onPickPartner (e) {
+    const { openid, name } = e.currentTarget.dataset
+    // 界面明示快照语义：重指后新搭档看不到旧「仅我俩」记录（spec 6.6 / 4.5）
+    wx.showModal({
+      title: '指定另一半',
+      content: `把「${name}」设为你的另一半？${this.data.partnerNickname ? '更换后，新搭档将看不到之前「仅我俩」的记录。' : ''}`,
+      confirmText: '指定',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await callApi('setPartner', { partnerOpenid: openid })
+          wx.showToast({ title: '已指定', icon: 'success' })
+          this.setData({ partnerPicking: false })
           this.loadBootstrap()
         } catch (err) {
           wx.showToast({ title: err.message || '操作失败', icon: 'none' })

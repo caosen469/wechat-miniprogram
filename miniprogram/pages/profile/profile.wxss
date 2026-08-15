@@ -162,3 +162,66 @@
   font-size: 26rpx;
   padding: 8rpx 0;
 }
+
+/* ---- 另一半 ---- */
+.partner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 0;
+}
+
+.partner-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+/* 选择另一半 sheet */
+.sheet-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.sheet {
+  background-color: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 40rpx 32rpx calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.sheet-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 24rpx;
+}
+
+.partner-option {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-bottom: 2rpx solid #f4f4f2;
+}
+
+.partner-option:last-child {
+  border-bottom: none;
+}
+
+.partner-option-name {
+  flex-grow: 1;
+  font-size: 30rpx;
+  color: #333333;
+}
+
+.partner-now {
+  font-size: 24rpx;
+  color: #8c6239;
+}
