@@ -1,6 +1,6 @@
 // wx-server-sdk 的最小内存版 mock，只覆盖本项目云函数用到的能力：
 //   cloud.init / cloud.getWXContext / cloud.database
-//   db.collection(name).where(cond).get()/count()、collection.add、collection.count、
+//   db.collection(name).where(cond).get()/count()/update()、collection.add、collection.count、
 //   collection.doc(id).get()/update()、db.createCollection
 //   db.command 的 gt/and/or/neq（返回不透明对象，where 匹配时跳过命令字段，
 //   命令条件的查询结果用 __setCount 显式指定，用于测分支而非测查询语义）
@@ -26,6 +26,11 @@ function isPlainValue (v) {
   return v === null || ['string', 'number', 'boolean'].includes(typeof v)
 }
 
+function applyUpdate (doc, data) {
+  // wx-server-sdk 的 update 是顶层字段合并，不是整体替换
+  Object.assign(doc, data)
+}
+
 function makeQuery (docs, name) {
   return {
     where (cond = {}) {
@@ -34,24 +39,6 @@ function makeQuery (docs, name) {
         Object.keys(cond).every(k => isPlainValue(cond[k]) ? doc[k] === cond[k] : true)
       )
       return makeQuery(filtered, name)
-    },
-    doc (id) {
-      const collection = state.collections[name]
-      return {
-        async get () {
-          if (collection === undefined) throw notExists(name)
-          const found = collection.find(d => d._id === id)
-          if (!found) throw new Error(`document not exists: ${id}`)
-          return { data: { ...found } }
-        },
-        async update ({ data }) {
-          if (collection === undefined) throw notExists(name)
-          const found = collection.find(d => d._id === id)
-          if (!found) throw new Error(`document not exists: ${id}`)
-          Object.assign(found, data)
-          return { stats: { updated: 1 } }
-        }
-      }
     },
     limit () {
       return this
@@ -63,6 +50,26 @@ function makeQuery (docs, name) {
     async count () {
       if (docs === undefined) throw notExists(name)
       return { total: state.counts[name] !== undefined ? state.counts[name] : docs.length }
+    },
+    async update ({ data }) {
+      if (docs === undefined) throw notExists(name)
+      docs.forEach(doc => applyUpdate(doc, data))
+      return { stats: { updated: docs.length } }
+    },
+    doc (id) {
+      const all = state.collections[name]
+      if (all === undefined) throw notExists(name)
+      const target = all.find(d => d._id === id)
+      if (!target) throw new Error(`document not exists: ${id}`)
+      return {
+        async get () {
+          return { data: { ...target } }
+        },
+        async update ({ data }) {
+          applyUpdate(target, data)
+          return { stats: { updated: 1 } }
+        }
+      }
     }
   }
 }
