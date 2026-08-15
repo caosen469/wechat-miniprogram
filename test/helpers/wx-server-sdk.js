@@ -1,8 +1,10 @@
 // wx-server-sdk 的最小内存版 mock，只覆盖本项目云函数用到的能力：
 //   cloud.init / cloud.getWXContext / cloud.database
-//   db.collection(name).where(cond).get()/count()、collection.add、collection.count、db.createCollection
+//   db.collection(name).where(cond).get()/count()、collection.add、collection.count、
+//   collection.doc(id).get()/update()、db.createCollection
 //   db.command 的 gt/and/or/neq（返回不透明对象，where 匹配时跳过命令字段，
 //   命令条件的查询结果用 __setCount 显式指定，用于测分支而非测查询语义）
+//   db.Geo.Point（记录经纬度，spec 4.4 location 字段）
 //
 // 真实云数据库里「集合不存在」时读写会抛错，这里保持同样行为，
 // 以便测试「首次建圈前集合尚不存在」的路径。
@@ -32,6 +34,24 @@ function makeQuery (docs, name) {
         Object.keys(cond).every(k => isPlainValue(cond[k]) ? doc[k] === cond[k] : true)
       )
       return makeQuery(filtered, name)
+    },
+    doc (id) {
+      const collection = state.collections[name]
+      return {
+        async get () {
+          if (collection === undefined) throw notExists(name)
+          const found = collection.find(d => d._id === id)
+          if (!found) throw new Error(`document not exists: ${id}`)
+          return { data: { ...found } }
+        },
+        async update ({ data }) {
+          if (collection === undefined) throw notExists(name)
+          const found = collection.find(d => d._id === id)
+          if (!found) throw new Error(`document not exists: ${id}`)
+          Object.assign(found, data)
+          return { stats: { updated: 1 } }
+        }
+      }
     },
     limit () {
       return this
@@ -70,6 +90,13 @@ const db = {
     neq: v => ({ __cmd: 'neq', v }),
     and: (...args) => ({ __cmd: 'and', args }),
     or: (...args) => ({ __cmd: 'or', args })
+  },
+  Geo: {
+    Point: class Point {
+      constructor (longitude, latitude) {
+        this.coordinates = [longitude, latitude]
+      }
+    }
   }
 }
 

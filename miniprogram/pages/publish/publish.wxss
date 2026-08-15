@@ -1,0 +1,253 @@
+/* 发布页（T15）：沿用 onboarding 的暖色 token（bg #faf7f2 / 主色 #8c6239） */
+
+.publish {
+  padding: 32rpx 32rpx 160rpx;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background-color: #faf7f2;
+}
+
+/* ---- 九宫格媒体 ---- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12rpx;
+}
+
+.tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 16rpx;
+  overflow: hidden;
+  background-color: #eeeeee;
+}
+
+.tile-img {
+  width: 100%;
+  height: 100%;
+}
+
+.tile-video {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  color: #999999;
+}
+
+.tile-play {
+  font-size: 48rpx;
+}
+
+.tile-dur {
+  font-size: 24rpx;
+}
+
+.tile-del {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  border: 2rpx dashed #d8d8d5;
+  background-color: transparent;
+  color: #bbbbbb;
+}
+
+.add-plus {
+  font-size: 56rpx;
+  line-height: 1;
+}
+
+.add-hint {
+  font-size: 20rpx;
+  text-align: center;
+  line-height: 1.5;
+  padding: 0 8rpx;
+}
+
+/* ---- 吐槽 ---- */
+.tt {
+  width: 100%;
+  min-height: 160rpx;
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  font-size: 30rpx;
+  line-height: 1.7;
+  box-sizing: border-box;
+  margin-top: 32rpx;
+}
+
+.count {
+  text-align: right;
+  font-size: 22rpx;
+  color: #bbbbbb;
+  margin-top: 8rpx;
+}
+
+/* ---- 地点 / 星级行 ---- */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 24rpx 8rpx;
+  border-bottom: 1rpx solid #eae6df;
+  margin-top: 8rpx;
+}
+
+.row-last {
+  border-bottom: none;
+}
+
+.row-ic {
+  font-size: 36rpx;
+}
+
+.row-grow {
+  flex: 1;
+}
+
+.place-name {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.place-placeholder {
+  font-size: 30rpx;
+  color: #999999;
+}
+
+.row-meta {
+  font-size: 22rpx;
+  color: #999999;
+  margin-top: 4rpx;
+}
+
+.place-clear {
+  color: #bbbbbb;
+  font-size: 28rpx;
+  padding: 8rpx;
+}
+
+.chev {
+  color: #cccccc;
+  font-size: 32rpx;
+}
+
+/* ---- 星级 ---- */
+.stars {
+  display: flex;
+  gap: 8rpx;
+}
+
+.star {
+  font-size: 56rpx;
+  line-height: 1;
+  color: #d8d8d5;
+}
+
+.star.on {
+  color: #b97f14;
+}
+
+.grade-badge {
+  font-size: 24rpx;
+  color: #8c6239;
+  background-color: rgba(140, 98, 57, 0.1);
+  border-radius: 999rpx;
+  padding: 4rpx 16rpx;
+}
+
+/* ---- 发布按钮 ---- */
+.publish-btn {
+  position: fixed;
+  left: 32rpx;
+  right: 32rpx;
+  bottom: calc(32rpx + env(safe-area-inset-bottom));
+}
+
+/* ---- 选点 sheet ---- */
+.sheet-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.sheet {
+  background-color: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 24rpx 32rpx calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.sheet-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.sheet-sub {
+  font-size: 24rpx;
+  color: #999999;
+  line-height: 1.6;
+  margin-bottom: 24rpx;
+}
+
+.sheet-input {
+  background-color: #f4f4f2;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 30rpx;
+  margin-bottom: 24rpx;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
+}
+
+.chip {
+  border: 2rpx solid #d8d8d5;
+  border-radius: 999rpx;
+  padding: 12rpx 28rpx;
+  font-size: 26rpx;
+  color: #666666;
+}
+
+.chip.on {
+  border-color: #8c6239;
+  color: #8c6239;
+  background-color: rgba(140, 98, 57, 0.08);
+  font-weight: 600;
+}
+
+.sheet-btn {
+  width: 100%;
+}

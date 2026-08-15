@@ -38,6 +38,11 @@ Page({
     }
   },
 
+  // 右下角打卡按钮 → 发布页（spec 6.2）
+  onTapPublish () {
+    wx.navigateTo({ url: '/pages/publish/publish' })
+  },
+
   async onTestCloud () {
     if (this.data.testing) return
     this.setData({ testing: true, cloudResult: '调用中…' })

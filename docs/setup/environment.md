@@ -31,8 +31,17 @@
 | `hello` | `cloudfunctions/hello` | 环境健康检查（阶段 0） |
 | `bootstrap` | `cloudfunctions/bootstrap` | 冷启动鉴权：openid → 成员身份；不在圈返回 `{me: null}`（T14） |
 | `createCircle` | `cloudfunctions/createCircle` | 建圈：创建者即圈主，生成 `circles`/`members` 文档（T14） |
+| `publishRecord` | `cloudfunctions/publishRecord` | 发布记录（T15）：鉴权 + 媒体/字数/星级复核 + 新地点按 poiId 归并，建 `records`/`places` 文档 |
 
 > 云函数本地单测：仓库根目录 `npm test`（jest，mock `wx-server-sdk`，不需真实环境）。
+
+## 其他配置项（T15 起）
+
+| 配置 | 位置 | 说明 |
+|---|---|---|
+| 腾讯位置服务 key | `miniprogram/config/index.js` 的 `tencentMapKey` | 发布页「用当前位置打卡」逆地址反查最近 POI 用。在 [lbs.qq.com](https://lbs.qq.com) 注册 → 创建应用 → 创建 Key（勾选 WebServiceAPI）。留空时该通道提示改用搜索/手动输入。**域名**：需在小程序后台把 `https://apis.map.qq.com` 加入 request 合法域名（开发工具里可先勾选「不校验合法域名」） |
+| `wx.getLocation` 权限 | 小程序后台 → 开发 → 接口设置 | 申请开通，使用场景写「打卡时选取当前位置附近的地点」（spec 10.2） |
+| `requiredPrivateInfos` | `miniprogram/app.json` | 已声明 `getLocation` + `choosePoi`（spec 10.2） |
 
 ## 验收对照（issue #15）
 

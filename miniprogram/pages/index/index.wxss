@@ -29,3 +29,21 @@
   color: #666666;
   word-break: break-all;
 }
+
+/* 右下角常驻打卡按钮（spec 6.2） */
+.fab {
+  position: fixed;
+  right: 40rpx;
+  bottom: calc(48rpx + env(safe-area-inset-bottom));
+  width: 108rpx;
+  height: 108rpx;
+  border-radius: 54rpx;
+  background-color: #8c6239;
+  color: #ffffff;
+  font-size: 56rpx;
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(140, 98, 57, 0.4);
+}

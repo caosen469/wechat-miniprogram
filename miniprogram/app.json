@@ -2,8 +2,18 @@
   "pages": [
     "pages/index/index",
     "pages/profile/profile",
-    "pages/onboarding/onboarding"
+    "pages/onboarding/onboarding",
+    "pages/publish/publish"
   ],
+  "requiredPrivateInfos": [
+    "getLocation",
+    "choosePoi"
+  ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于打卡时选取你当前位置附近的地点"
+    }
+  },
   "window": {
     "navigationBarBackgroundColor": "#faf7f2",
     "navigationBarTextStyle": "black",

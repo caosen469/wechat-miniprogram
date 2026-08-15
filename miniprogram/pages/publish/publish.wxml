@@ -1,0 +1,109 @@
+<!-- 发布页·简化版（T8 变体 C「拍摄优先」的简化实现，T15）：
+     九宫格媒体打头 → 吐槽 → 地点内联 → 星级内联 → 底栏发布。 -->
+<view class="publish">
+  <!-- 1. 九宫格媒体 -->
+  <view class="grid">
+    <view wx:for="{{media}}" wx:key="path" class="tile">
+      <block wx:if="{{item.type === 'image'}}">
+        <image class="tile-img" src="{{item.path}}" mode="aspectFill" />
+      </block>
+      <block wx:else>
+        <view class="tile-video">
+          <view class="tile-play">▶</view>
+          <view class="tile-dur">{{item.duration}}s</view>
+        </view>
+      </block>
+      <view class="tile-del" catchtap="onRemoveMedia" data-index="{{index}}">✕</view>
+    </view>
+    <view wx:if="{{media.length < totalMax}}" class="tile tile-add" bindtap="onAddMedia">
+      <view class="add-plus">＋</view>
+      <view class="add-hint">图 ≤9 · 视频 ≤3 段各 ≤60s · 合计 ≤12</view>
+    </view>
+  </view>
+
+  <!-- 2. 吐槽文字 -->
+  <textarea
+    class="tt"
+    value="{{text}}"
+    maxlength="{{textMax}}"
+    placeholder="这次体验如何？吐槽一句…（可加 emoji）"
+    bindinput="onTextInput"
+  />
+  <view class="count">{{text.length}}/{{textMax}}</view>
+
+  <!-- 3. 地点内联轻选 -->
+  <view class="row" bindtap="onPlaceTap">
+    <view class="row-ic">📍</view>
+    <view class="row-grow">
+      <view wx:if="{{place}}" class="place-name">{{place.name}}</view>
+      <view wx:else class="place-placeholder">选择地点…</view>
+      <view wx:if="{{place}}" class="row-meta">{{place.typeLabel}}{{place.poiId ? '' : ' · 不参与自动归并'}}</view>
+      <view wx:else class="row-meta">POI 搜索 / 当前位置 / 手动输入</view>
+    </view>
+    <view wx:if="{{place}}" class="place-clear" catchtap="onClearPlace">✕</view>
+    <view wx:else class="chev">›</view>
+  </view>
+
+  <!-- 4. 星级内联（必填） -->
+  <view class="row row-last">
+    <view class="row-ic">⭐</view>
+    <view class="stars">
+      <view
+        wx:for="{{[1, 2, 3, 4, 5]}}"
+        wx:key="*this"
+        class="star {{rating >= item ? 'on' : ''}}"
+        bindtap="onSetRating"
+        data-n="{{item}}"
+      >★</view>
+    </view>
+    <view class="row-grow" />
+    <view wx:if="{{grade}}" class="grade-badge">{{grade}}</view>
+  </view>
+
+  <!-- 5. 发布 -->
+  <button class="publish-btn" type="primary" bindtap="onPublish" disabled="{{submitting}}">
+    发布
+  </button>
+</view>
+
+<!-- 选点 sheet：POI 选定后选类型 / 手动新地点 -->
+<view wx:if="{{sheet}}" class="sheet-mask" bindtap="onCloseSheet">
+  <view class="sheet" catchtap="onSheetTap">
+    <block wx:if="{{sheet === 'type'}}">
+      <view class="sheet-title">📍 {{pendingName}}</view>
+      <view class="sheet-sub">新地点首次打卡——选个类型用于归档；已打卡过的地点会自动沿用原类型。</view>
+      <view class="chips">
+        <view
+          wx:for="{{typeOptions}}"
+          wx:key="value"
+          class="chip {{pendingType === item.value ? 'on' : ''}}"
+          bindtap="onPickPendingType"
+          data-value="{{item.value}}"
+        >{{item.label}}</view>
+      </view>
+      <button class="sheet-btn" type="primary" bindtap="onConfirmPendingPlace">就打这里</button>
+    </block>
+
+    <block wx:if="{{sheet === 'manual'}}">
+      <view class="sheet-title">📍 手动新地点</view>
+      <view class="sheet-sub">给地方起个名、选个类型；不与地图上的店自动归并。</view>
+      <input
+        class="sheet-input"
+        placeholder="地点名称，如「家里楼下」"
+        value="{{manualName}}"
+        bindinput="onManualNameInput"
+        maxlength="50"
+      />
+      <view class="chips">
+        <view
+          wx:for="{{typeOptions}}"
+          wx:key="value"
+          class="chip {{manualType === item.value ? 'on' : ''}}"
+          bindtap="onPickManualType"
+          data-value="{{item.value}}"
+        >{{item.label}}</view>
+      </view>
+      <button class="sheet-btn" type="primary" bindtap="onConfirmManualPlace">就打这里</button>
+    </block>
+  </view>
+</view>

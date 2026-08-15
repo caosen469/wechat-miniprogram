@@ -14,6 +14,9 @@
     <button class="test-btn" type="primary" bindtap="onTestCloud" disabled="{{testing}}">
       测试云函数连通
     </button>
-    <view wx:if="{{cloudResult}}" class="cloud-result">{{cloudResult}}</view>
+    <view class="cloud-result" wx:if="{{cloudResult}}">{{cloudResult}}</view>
+
+    <!-- 右下角常驻打卡按钮（spec 6.2）；列表形态 T16 落地 -->
+    <view class="fab" bindtap="onTapPublish">＋</view>
   </block>
 </view>

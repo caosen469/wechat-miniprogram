@@ -1,0 +1,9 @@
+{
+  "name": "publishRecord",
+  "version": "1.0.0",
+  "description": "发布回忆记录（简化版）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
