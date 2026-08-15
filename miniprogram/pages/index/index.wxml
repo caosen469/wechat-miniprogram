@@ -9,49 +9,52 @@
 
   <block wx:else>
     <!-- 空状态 = 最小引导（spec 6.2）：一句话 + 打卡入口，不做示例内容 -->
-    <view wx:if="{{!loadingFeed && records.length === 0 && !feedError}}" class="empty">
+    <view wx:if="{{!loadingPlaces && places.length === 0 && !placesError}}" class="empty">
       <view class="empty-title">这里还空着，去吃点什么吧</view>
       <button class="empty-btn" type="primary" bindtap="onTapPublish">去打卡</button>
     </view>
 
-    <!-- 简版记录流水：时间倒序，封面首图 + 地点 + 星级 + 吐槽 + 作者（T16） -->
-    <view wx:else class="feed">
+    <!-- 足迹列表：地点为一等公民（spec 6.2，T19） -->
+    <view wx:else class="places">
       <view
-        class="card"
-        wx:for="{{records}}"
+        class="place-card"
+        wx:for="{{places}}"
         wx:key="_id"
-        bindtap="onOpenRecord"
+        bindtap="onOpenPlace"
         data-id="{{item._id}}"
+        data-name="{{item.name}}"
       >
-        <image
-          wx:if="{{item.coverFileID}}"
-          class="cover"
-          src="{{item.coverFileID}}"
-          mode="aspectFill"
-        />
-        <view wx:else class="cover cover-empty">📷</view>
-        <view class="info">
-          <view class="place-row">
-            <text class="place">{{item.place.name}}</text>
-            <text class="grade">{{item.grade}}</text>
+        <!-- 封面拼图：1 图单图，2 图并排，3 图 1 大 2 小，4 图 1 大 3 小（CSS grid，不必上 canvas） -->
+        <view wx:if="{{item.covers.length > 0}}" class="mosaic mosaic-{{item.covers.length === 1 ? 'one' : item.covers.length}}">
+          <image
+            wx:for="{{item.covers}}"
+            wx:for-item="cover"
+            wx:for-index="ci"
+            wx:key="*this"
+            class="mosaic-cell {{ci === 0 && item.covers.length >= 3 ? 'mosaic-main' : ''}}"
+            src="{{cover}}"
+            mode="aspectFill"
+          />
+        </view>
+        <view wx:else class="mosaic-empty">📷</view>
+
+        <view class="pc-body">
+          <view class="pc-l1">
+            <text class="pc-name">{{item.name}}</text>
+            <text class="type-chip">{{item.typeLabel}}</text>
           </view>
-          <view class="stars">{{item.stars}}</view>
-          <view class="text" wx:if="{{item.text}}">{{item.text}}</view>
-          <view class="meta">
-            <image
-              wx:if="{{item.author.avatarUrl}}"
-              class="avatar"
-              src="{{item.author.avatarUrl}}"
-              mode="aspectFill"
-            />
-            <text>{{item.author.nickname}} · {{item.timeText}}</text>
+          <view class="pc-l2">
+            <text class="stars">{{item.stars}}</text>
+            <text class="avg">{{item.avgText}}</text>
+            <text class="visits">去过 {{item.visitCount}} 次</text>
+            <text class="grade-badge badge-{{item.gradeKey}}">{{item.grade}}</text>
           </view>
         </view>
       </view>
     </view>
 
-    <view wx:if="{{loadingFeed && records.length === 0}}" class="tip">加载中…</view>
-    <view wx:if="{{feedError}}" class="feed-error" bindtap="loadFeed">加载失败：{{feedError}}（点击重试）</view>
+    <view wx:if="{{loadingPlaces && places.length === 0}}" class="tip">加载中…</view>
+    <view wx:if="{{placesError}}" class="feed-error" bindtap="loadPlaces">加载失败：{{placesError}}（点击重试）</view>
 
     <!-- 右下角常驻打卡按钮（spec 6.2） -->
     <view class="fab" bindtap="onTapPublish">＋</view>

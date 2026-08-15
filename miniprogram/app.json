@@ -4,7 +4,8 @@
     "pages/profile/profile",
     "pages/onboarding/onboarding",
     "pages/publish/publish",
-    "pages/detail/detail"
+    "pages/detail/detail",
+    "pages/place/place"
   ],
   "requiredPrivateInfos": [
     "getLocation",

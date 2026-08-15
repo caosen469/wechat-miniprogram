@@ -39,29 +39,68 @@
   width: 320rpx;
 }
 
-/* 简版记录流水（T16） */
-.feed {
+/* 足迹列表：地点为一等公民（spec 6.2，T19） */
+.places {
   display: flex;
   flex-direction: column;
   gap: 24rpx;
 }
 
-.card {
-  display: flex;
+.place-card {
   background-color: #ffffff;
   border-radius: 16rpx;
-  padding: 24rpx;
-  gap: 24rpx;
+  overflow: hidden;
 }
 
-.cover {
-  width: 180rpx;
-  height: 180rpx;
-  border-radius: 12rpx;
-  flex-shrink: 0;
+/* 封面拼图（CSS grid，不必上 canvas） */
+.mosaic {
+  width: 100%;
+  display: grid;
+  gap: 4rpx;
 }
 
-.cover-empty {
+.mosaic-one {
+  grid-template-columns: 1fr;
+}
+
+.mosaic-one .mosaic-cell {
+  height: 320rpx;
+}
+
+.mosaic-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.mosaic-2 .mosaic-cell {
+  height: 240rpx;
+}
+
+.mosaic-3 {
+  grid-template-columns: 1.6fr 1fr;
+  grid-auto-rows: 132rpx;
+}
+
+.mosaic-3 .mosaic-main {
+  grid-row: span 2;
+}
+
+/* 4 图：左大图跨 3 行 + 右列 3 小图，总高与 3 图拼图一致 */
+.mosaic-4 {
+  grid-template-columns: 1.6fr 1fr;
+  grid-auto-rows: 88rpx;
+}
+
+.mosaic-4 .mosaic-main {
+  grid-row: span 3;
+}
+
+.mosaic-cell {
+  width: 100%;
+  height: 100%;
+}
+
+.mosaic-empty {
+  height: 240rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -69,22 +108,19 @@
   font-size: 56rpx;
 }
 
-.info {
-  flex: 1;
-  min-width: 0; /* 允许文字列内截断 */
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
+/* 卡片信息区 */
+.pc-body {
+  padding: 20rpx 24rpx 24rpx;
 }
 
-.place-row {
+.pc-l1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
 }
 
-.place {
+.pc-name {
   font-size: 32rpx;
   font-weight: 600;
   overflow: hidden;
@@ -92,44 +128,56 @@
   white-space: nowrap;
 }
 
-.grade {
+.type-chip {
   flex-shrink: 0;
-  font-size: 24rpx;
+  font-size: 22rpx;
   color: #8c6239;
   background-color: rgba(140, 98, 57, 0.1);
   border-radius: 8rpx;
   padding: 4rpx 12rpx;
 }
 
-.stars {
-  color: #e6a23c;
-  font-size: 26rpx;
-  letter-spacing: 4rpx;
-}
-
-.text {
-  font-size: 28rpx;
-  color: #444444;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-
-.meta {
+.pc-l2 {
+  margin-top: 12rpx;
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  color: #999999;
+  gap: 16rpx;
   font-size: 24rpx;
-  margin-top: auto;
+  color: #999999;
 }
 
-.avatar {
-  width: 36rpx;
-  height: 36rpx;
-  border-radius: 18rpx;
+.stars {
+  color: #e6a23c;
+  letter-spacing: 2rpx;
+}
+
+.avg {
+  color: #666666;
+  font-weight: 600;
+}
+
+/* 情绪档位徽章（spec 3 三档配色） */
+.grade-badge {
+  margin-left: auto;
   flex-shrink: 0;
+  font-size: 22rpx;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+}
+
+.badge-good {
+  color: #1e8e5a;
+  background-color: rgba(30, 142, 90, 0.12);
+}
+
+.badge-mid {
+  color: #b97f14;
+  background-color: rgba(185, 127, 20, 0.12);
+}
+
+.badge-bad {
+  color: #cf4436;
+  background-color: rgba(207, 68, 54, 0.12);
 }
 
 .tip {

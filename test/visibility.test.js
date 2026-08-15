@@ -10,6 +10,7 @@
 
 const COPIES = {
   listFeed: require('../cloudfunctions/listFeed/visibility'),
+  listPlaces: require('../cloudfunctions/listPlaces/visibility'),
   getRecord: require('../cloudfunctions/getRecord/visibility'),
   getPlaceDetail: require('../cloudfunctions/getPlaceDetail/visibility'),
   updateRecord: require('../cloudfunctions/updateRecord/visibility'),

@@ -1,0 +1,63 @@
+<view class="page">
+  <!-- 统计条（spec 6.3）：总次数 / 平均分 / 三档位小计数 -->
+  <view wx:if="{{stats}}" class="stat-bar">
+    <view class="stat">
+      <text class="stat-num">{{records.length}}</text>
+      <text class="stat-label">总次数</text>
+    </view>
+    <view class="stat">
+      <text class="stat-num">{{stats.avg}}</text>
+      <text class="stat-label">平均分</text>
+    </view>
+    <view class="stat">
+      <text class="stat-num">{{stats.counts.good}}</text>
+      <text class="stat-label tier-good">宝藏</text>
+    </view>
+    <view class="stat">
+      <text class="stat-num">{{stats.counts.mid}}</text>
+      <text class="stat-label tier-mid">还行</text>
+    </view>
+    <view class="stat">
+      <text class="stat-num">{{stats.counts.bad}}</text>
+      <text class="stat-label tier-bad">踩雷</text>
+    </view>
+  </view>
+
+  <!-- 该地点全部记录：时间倒序，首图缩略卡，点进详情（spec 6.3） -->
+  <view class="records">
+    <view
+      class="card"
+      wx:for="{{records}}"
+      wx:key="_id"
+      bindtap="onOpenRecord"
+      data-id="{{item._id}}"
+    >
+      <image
+        wx:if="{{item.coverFileID}}"
+        class="cover"
+        src="{{item.coverFileID}}"
+        mode="aspectFill"
+      />
+      <view wx:else class="cover cover-empty">📷</view>
+      <view class="info">
+        <view class="stars-row">
+          <text class="stars">{{item.stars}}</text>
+          <text class="grade">{{item.grade}}</text>
+        </view>
+        <view class="text" wx:if="{{item.text}}">{{item.text}}</view>
+        <view class="meta">
+          <image
+            wx:if="{{item.author.avatarUrl}}"
+            class="avatar"
+            src="{{item.author.avatarUrl}}"
+            mode="aspectFill"
+          />
+          <text>{{item.author.nickname}} · {{item.timeText}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading && records.length === 0}}" class="tip">加载中…</view>
+  <view wx:if="{{loadError}}" class="load-error" bindtap="loadDetail">加载失败：{{loadError}}（点击重试）</view>
+</view>

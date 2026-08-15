@@ -1,9 +1,10 @@
-// 首页·简版足迹流水（spec 6.2 简版形态，T16）：记录时间倒序流水。
-// 非最终形态——T19 升级为地点为一等公民的足迹列表（封面拼图/均分/次数/地图段控）。
-// 每次进入本页刷新（发布返回后新记录立即可见）；右下角常驻打卡按钮跳发布页。
+// 首页·足迹列表（spec 6.2 定稿形态，T19）：地点为一等公民。
+// 每张地点卡片 = listPlaces 聚合的封面拼图（1 图或 4 图拼图）+ 地点名 + 类型
+// + 均分 ★ + 到访次数 + 情绪档位徽章（按均分映射）；点卡片进地点页。
+// 每次进入本页刷新（发布返回后新聚合立即可见）；右下角常驻打卡按钮跳发布页。
 const { callApi } = require('../../services/api')
-const { formatTime } = require('../../services/formatTime')
-const { gradeOf, starsOf } = require('../../services/rating')
+const { gradeOf, tierKeyOf, starsOf } = require('../../services/rating')
+const { typeLabelOf } = require('../../services/placeTypes')
 
 Page({
   data: {
@@ -11,16 +12,16 @@ Page({
     checkFailed: false,
     checkError: '',
     me: null,
-    records: [], // listFeed 返回的记录流水（含 author/place join）
-    loadingFeed: false,
-    feedError: ''
+    places: [], // listPlaces 聚合的地点卡片
+    loadingPlaces: false,
+    placesError: ''
   },
 
   async onShow () {
     // 冷启动身份检查每个页面实例只做一次（从 onboarding reLaunch 回来是全新实例）；
-    // 已检查过则只刷新流水——发布页返回后新记录立即可见
+    // 已检查过则只刷新聚合——发布/编辑/删除返回后数字与封面立即更新
     if (this.bootstrapped) {
-      this.loadFeed()
+      this.loadPlaces()
       return
     }
     this.bootstrapped = true
@@ -38,7 +39,7 @@ Page({
       }
       getApp().globalData.bootstrap = result
       this.setData({ me: result.me, checking: false })
-      await this.loadFeed()
+      await this.loadPlaces()
     } catch (err) {
       // bootstrap 失败不阻断：留在本页给重试入口，并展示真实错误便于排查
       this.setData({
@@ -49,31 +50,36 @@ Page({
     }
   },
 
-  async loadFeed () {
-    if (this.data.loadingFeed) return
-    this.setData({ loadingFeed: true, feedError: '' })
+  async loadPlaces () {
+    if (this.data.loadingPlaces) return
+    this.setData({ loadingPlaces: true, placesError: '' })
     try {
-      const result = await callApi('listFeed')
-      const records = (result.records || []).map(r => {
-        const cover = (r.media || []).find(m => m.type === 'image')
+      const result = await callApi('listPlaces')
+      const places = (result.places || []).map(p => {
+        // 均分 → 情绪档位：先四舍五入到整数星，再走评分的三档映射（spec 3）
+        const rounded = Math.round(p.avgRating)
         return {
-          ...r,
-          coverFileID: cover ? cover.fileID : '',
-          stars: starsOf(r.rating),
-          grade: gradeOf(r.rating),
-          // 展示到访时间（补记后即补记时间，与列表排序一致）；老数据缺字段时回退 createdAt
-          timeText: formatTime(r.happenedAt || r.createdAt)
+          ...p,
+          typeLabel: typeLabelOf(p.type),
+          // 均分展示：星串按四舍五入的整数星，数值保留 1 位小数
+          stars: starsOf(rounded),
+          avgText: p.avgRating.toFixed(1),
+          grade: gradeOf(rounded),
+          gradeKey: tierKeyOf(rounded)
         }
       })
-      this.setData({ records, loadingFeed: false })
+      this.setData({ places, loadingPlaces: false })
     } catch (err) {
-      // 非静默类错误给一行可重试的提示（NOT_VISIBLE 语义不适用于列表本身）
-      this.setData({ loadingFeed: false, feedError: err.message || '加载失败' })
+      this.setData({ loadingPlaces: false, placesError: err.message || '加载失败' })
     }
   },
 
-  onOpenRecord (e) {
-    wx.navigateTo({ url: `/pages/detail/detail?recordId=${e.currentTarget.dataset.id}` })
+  // 点地点卡片 → 地点页（spec 6.3）：名称先带上，加载后再校准导航栏标题
+  onOpenPlace (e) {
+    const { id, name } = e.currentTarget.dataset
+    wx.navigateTo({
+      url: `/pages/place/place?placeId=${id}&name=${encodeURIComponent(name || '')}`
+    })
   },
 
   // 右下角打卡按钮 → 发布页（spec 6.2）

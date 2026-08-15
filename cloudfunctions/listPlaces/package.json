@@ -1,0 +1,9 @@
+{
+  "name": "listPlaces",
+  "version": "1.0.0",
+  "description": "足迹列表聚合：按地点聚合全部可见记录的均分/次数/档位分布/封面",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
