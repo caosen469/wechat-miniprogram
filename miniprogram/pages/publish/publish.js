@@ -474,7 +474,12 @@ Page({
         sheet: 'type'
       })
     } catch (e) {
-      // 用户取消选点，静默
+      // 用户取消选点静默；真实失败要可见（权限/环境问题会表现成「卡住」）
+      const msg = (e && e.errMsg) || String(e)
+      if (!msg.includes('cancel')) {
+        console.warn('choosePoi fail:', msg)
+        wx.showToast({ title: '选点失败：' + msg, icon: 'none', duration: 3000 })
+      }
     }
   },
 
