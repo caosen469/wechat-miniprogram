@@ -380,6 +380,8 @@ Page({
       duration: LIMITS.VIDEO_DURATION_MAX * 1000, // 到时自动停（onStop 统一收口）
       format: 'aac',
       sampleRate: 44100,
+      // 码率必须显式给：44100 采样下默认 48000 会因「须在 64000–320000」被拒
+      encodeBitRate: 64000, // 语音够用（真机预览反馈）
       numberOfChannels: 1
     })
   },
