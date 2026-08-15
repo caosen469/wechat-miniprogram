@@ -54,12 +54,19 @@ exports.main = async () => {
 
   await ensureCollection('invite_codes')
 
-  // 唯一索引兜底：极小概率撞码时换一个重试
-  let code = randomCode()
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const clash = await db.collection('invite_codes').where({ code }).count()
-    if (clash.total === 0) break
-    code = randomCode()
+  // 唯一索引兜底：极小概率撞码时换一个重试；重试耗尽仍未拿到空闲码则报错，
+  // 绝不写入未检查过的码（会撞唯一索引）
+  let code = null
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const candidate = randomCode()
+    const clash = await db.collection('invite_codes').where({ code: candidate }).count()
+    if (clash.total === 0) {
+      code = candidate
+      break
+    }
+  }
+  if (!code) {
+    return err('VALIDATION_FAILED', '邀请码生成失败，请重试')
   }
 
   const now = new Date()

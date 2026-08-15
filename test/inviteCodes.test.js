@@ -25,7 +25,7 @@ describe('createInviteCode（生成邀请码）', () => {
     const result = await createInviteCode.main({})
 
     expect(result.code).toBeUndefined()
-    expect(result.inviteCode.code).toMatch(/^[0-9A-Z]{6}$/)
+    expect(result.inviteCode.code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/) // 6 位且不含易混淆的 0/O/1/I
     expect(result.inviteCode.expiresAt.getTime() - before).toBeGreaterThanOrEqual(24 * 3600 * 1000 - 1000)
 
     const docs = sdk.__state.collections.invite_codes
@@ -67,7 +67,7 @@ describe('createInviteCode（生成邀请码）', () => {
       }
     })
     const result = await createInviteCode.main({})
-    expect(result.inviteCode.code).toMatch(/^[0-9A-Z]{6}$/)
+    expect(result.inviteCode.code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/) // 6 位且不含易混淆的 0/O/1/I
     expect(sdk.__state.collections.invite_codes).toHaveLength(1)
   })
 })
