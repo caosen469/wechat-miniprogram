@@ -18,7 +18,7 @@
       <view class="field-label">邀请码</view>
       <input
         class="invite-input"
-        placeholder="输入圈主分享的 6 位邀请码"
+        placeholder="输入圈主给你的 6 位邀请码"
         maxlength="6"
         value="{{inviteCode}}"
         bindinput="onInviteCodeInput"

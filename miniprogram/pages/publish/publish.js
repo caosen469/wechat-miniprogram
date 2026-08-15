@@ -13,6 +13,7 @@ const { tencentMapKey } = require('../../config/index')
 const { TYPE_OPTIONS, typeLabelOf } = require('../../services/placeTypes')
 const { gradeOf } = require('../../services/rating')
 const reminders = require('../../services/reminders')
+const { isAuthDenied, guideToSetting } = require('../../services/permissions')
 
 // 可见范围三档（spec 4.6；pair 需圈主已指定另一半，未指定时禁选）
 const VISIBILITY_OPTIONS = [
@@ -275,7 +276,15 @@ Page({
         wx.showToast({ title: `已拦截：${parts.join('、')}`, icon: 'none', duration: 2500 })
       }
     } catch (e) {
-      // 用户取消选择，静默
+      // 用户取消选择静默；相机/相册被拒引导去设置（spec 10.2：不留死路）；
+      // 其余真实失败 warn + toast 可见（与 choosePoi 分支一致，不静默卡住）
+      const msg = (e && e.errMsg) || String(e)
+      if (isAuthDenied(e)) {
+        guideToSetting('需要相机/相册权限', '拍摄或选择照片前，请在设置中允许「相机」和「相册」权限')
+      } else if (!msg.includes('cancel')) {
+        console.warn('chooseMedia fail:', msg)
+        wx.showToast({ title: '选择失败，请重试', icon: 'none' })
+      }
     }
   },
 
@@ -353,14 +362,7 @@ Page({
       wx.getSetting({
         success: (res) => {
           if (res.authSetting['scope.record'] === false) {
-            wx.showModal({
-              title: '需要麦克风权限',
-              content: '录音前请在设置中允许「麦克风」权限',
-              confirmText: '去设置',
-              success: (r) => {
-                if (r.confirm) wx.openSetting({})
-              }
-            })
+            guideToSetting('需要麦克风权限', '录音前请在设置中允许「麦克风」权限')
             reject(new Error('record scope denied'))
             return
           }
@@ -377,7 +379,12 @@ Page({
     try {
       await this.ensureRecordScope()
     } catch (e) {
-      return // 已弹过引导/用户拒绝授权，静默返回
+      // 曾拒绝过：上面已弹「去设置」引导；首次在授权框点拒绝（authorize fail）
+      // 也要有反馈，否则本次点击毫无效果（下次点击才会走引导）
+      if (isAuthDenied(e)) {
+        wx.showToast({ title: '没有麦克风权限，无法录音', icon: 'none' })
+      }
+      return
     }
     this.ensureRecorder().start({
       duration: LIMITS.VIDEO_DURATION_MAX * 1000, // 到时自动停（onStop 统一收口）
@@ -477,7 +484,11 @@ Page({
         sheet: 'type'
       })
     } catch (e) {
-      // 用户取消选点静默；真实失败要可见（权限/环境问题会表现成「卡住」）
+      // 用户取消选点静默；定位被拒引导去设置，其余真实失败报错可见
+      if (isAuthDenied(e)) {
+        guideToSetting('需要位置权限', '选择地点前，请在设置中允许「位置」权限')
+        return
+      }
       const msg = (e && e.errMsg) || String(e)
       if (!msg.includes('cancel')) {
         console.warn('choosePoi fail:', msg)
@@ -492,15 +503,23 @@ Page({
       wx.showToast({ title: '未配置地图 key，请用搜索或手动输入', icon: 'none' })
       return
     }
+    // loading 提前到 getLocation 前：GPS 等待可达数秒，期间无指示会被当成点击无效
+    wx.showLoading({ title: '定位中…', mask: true })
     let location
     try {
       const loc = await wx.getLocation({ type: 'gcj02' })
       location = loc
     } catch (e) {
-      wx.showToast({ title: '定位失败，请检查定位授权', icon: 'none' })
+      wx.hideLoading()
+      // 定位被拒引导去设置（spec 10.2）；普通失败（超时等）提示里保留授权字样，
+      // 兜住未收录的拒绝 errMsg 写法（评审 #2）
+      if (isAuthDenied(e)) {
+        guideToSetting('需要位置权限', '用当前位置打卡前，请在设置中允许「位置」权限')
+      } else {
+        wx.showToast({ title: '定位失败，请检查定位授权或稍后再试', icon: 'none' })
+      }
       return
     }
-    wx.showLoading({ title: '定位中…', mask: true })
     try {
       const res = await new Promise((resolve, reject) => {
         wx.request({
