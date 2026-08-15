@@ -7,7 +7,7 @@
 | 项 | 值 | 说明 |
 |---|---|---|
 | AppID | `（待填：微信公众平台 → 开发 → 开发管理 → 开发设置）` | 正式 AppID，**非测试号** |
-| 云开发环境 ID | `（待填：微信开发者工具 → 云开发控制台，形如 cloud1-0gxxxxxxxx）` | 不是 AppID |
+| 云开发环境 ID | `cloudbase-d6ghtbspmc62caa6d` | 已同步到 `miniprogram/config/index.js` |
 | 基础库版本 | 3.8.12（project.config.json 锁定） | |
 | 微信开发者工具版本 | `（待填）` | |
 
