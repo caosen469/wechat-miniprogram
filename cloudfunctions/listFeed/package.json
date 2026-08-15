@@ -1,0 +1,9 @@
+{
+  "name": "listFeed",
+  "version": "1.0.0",
+  "description": "简版足迹流水：时间倒序记录数组，服务端 join 作者与地点，可见性过滤",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

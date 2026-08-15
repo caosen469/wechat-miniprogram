@@ -1,4 +1,4 @@
-<view class="container">
+<view class="page">
   <view wx:if="{{checking}}" class="title">正在进入…</view>
 
   <block wx:elif="{{checkFailed}}">
@@ -8,15 +8,52 @@
   </block>
 
   <block wx:else>
-    <view class="title">Hello World 🏠</view>
-    <view class="subtitle" wx:if="{{me}}">欢迎，{{me.nickname}}</view>
+    <!-- 空状态 = 最小引导（spec 6.2）：一句话 + 打卡入口，不做示例内容 -->
+    <view wx:if="{{!loadingFeed && records.length === 0 && !feedError}}" class="empty">
+      <view class="empty-title">这里还空着，去吃点什么吧</view>
+      <button class="empty-btn" type="primary" bindtap="onTapPublish">去打卡</button>
+    </view>
 
-    <button class="test-btn" type="primary" bindtap="onTestCloud" disabled="{{testing}}">
-      测试云函数连通
-    </button>
-    <view class="cloud-result" wx:if="{{cloudResult}}">{{cloudResult}}</view>
+    <!-- 简版记录流水：时间倒序，封面首图 + 地点 + 星级 + 吐槽 + 作者（T16） -->
+    <view wx:else class="feed">
+      <view
+        class="card"
+        wx:for="{{records}}"
+        wx:key="_id"
+        bindtap="onOpenRecord"
+        data-id="{{item._id}}"
+      >
+        <image
+          wx:if="{{item.coverFileID}}"
+          class="cover"
+          src="{{item.coverFileID}}"
+          mode="aspectFill"
+        />
+        <view wx:else class="cover cover-empty">📷</view>
+        <view class="info">
+          <view class="place-row">
+            <text class="place">{{item.place.name}}</text>
+            <text class="grade">{{item.grade}}</text>
+          </view>
+          <view class="stars">{{item.stars}}</view>
+          <view class="text" wx:if="{{item.text}}">{{item.text}}</view>
+          <view class="meta">
+            <image
+              wx:if="{{item.author.avatarUrl}}"
+              class="avatar"
+              src="{{item.author.avatarUrl}}"
+              mode="aspectFill"
+            />
+            <text>{{item.author.nickname}} · {{item.timeText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
 
-    <!-- 右下角常驻打卡按钮（spec 6.2）；列表形态 T16 落地 -->
+    <view wx:if="{{loadingFeed && records.length === 0}}" class="tip">加载中…</view>
+    <view wx:if="{{feedError}}" class="feed-error" bindtap="loadFeed">加载失败：{{feedError}}（点击重试）</view>
+
+    <!-- 右下角常驻打卡按钮（spec 6.2） -->
     <view class="fab" bindtap="onTapPublish">＋</view>
   </block>
 </view>

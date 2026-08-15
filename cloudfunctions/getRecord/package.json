@@ -1,0 +1,9 @@
+{
+  "name": "getRecord",
+  "version": "1.0.0",
+  "description": "简版记录详情：可见者才返回，join 作者与地点，含到访序号",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

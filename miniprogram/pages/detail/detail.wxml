@@ -1,0 +1,63 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="tip">加载中…</view>
+
+  <block wx:elif="{{loadError}}">
+    <view class="tip">{{loadError}}</view>
+    <button class="retry-btn" type="primary" bindtap="onRetry">重试</button>
+  </block>
+
+  <block wx:else>
+    <!-- 大图翻页（简版：横滑切媒体） -->
+    <swiper class="media-swiper" indicator-dots circular>
+      <swiper-item wx:for="{{media}}" wx:key="fileID">
+        <video
+          wx:if="{{item.isVideo && item.src}}"
+          class="media"
+          src="{{item.src}}"
+          object-fit="contain"
+          controls
+        />
+        <!-- 视频临时链接获取失败：给占位而非空裂图帧，可点击重试 -->
+        <view wx:elif="{{item.isVideo}}" class="media-fallback" bindtap="onRetry">
+          视频加载失败，点击重试
+        </view>
+        <image
+          wx:else
+          class="media"
+          src="{{item.src}}"
+          mode="aspectFill"
+          data-src="{{item.src}}"
+          bindtap="onPreviewImage"
+        />
+      </swiper-item>
+    </swiper>
+
+    <view class="body">
+      <!-- 固定地点上下文（spec 6.4） -->
+      <view class="place-row" wx:if="{{place}}">
+        <view class="place-name">{{place.name}}</view>
+        <view class="place-sub">
+          <text class="type-label">{{place.typeLabel}}</text>
+          <text wx:if="{{visitNo > 0}}" class="visit-no">第 {{visitNo}} 次到访</text>
+        </view>
+      </view>
+
+      <view class="stars-row">
+        <text class="stars">{{record.stars}}</text>
+        <text class="grade">{{record.grade}}</text>
+      </view>
+
+      <view class="text" wx:if="{{record.text}}">{{record.text}}</view>
+
+      <view class="meta">
+        <image
+          wx:if="{{author.avatarUrl}}"
+          class="avatar"
+          src="{{author.avatarUrl}}"
+          mode="aspectFill"
+        />
+        <text>{{author.nickname}} · {{record.timeText}}</text>
+      </view>
+    </view>
+  </block>
+</view>

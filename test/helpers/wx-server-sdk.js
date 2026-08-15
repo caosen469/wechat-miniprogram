@@ -1,7 +1,7 @@
 // wx-server-sdk 的最小内存版 mock，只覆盖本项目云函数用到的能力：
 //   cloud.init / cloud.getWXContext / cloud.database
 //   db.collection(name).where(cond).get()/count()/update()、collection.add、collection.count、
-//   collection.doc(id).get()/update()、db.createCollection
+//   collection.doc(id).get()/update()、db.createCollection、where().orderBy().limit().get()
 //   db.command 的 gt/and/or/neq（返回不透明对象，where 匹配时跳过命令字段，
 //   命令条件的查询结果用 __setCount 显式指定，用于测分支而非测查询语义）
 //   db.Geo.Point（记录经纬度，spec 4.4 location 字段）
@@ -42,6 +42,16 @@ function makeQuery (docs, name) {
     },
     limit () {
       return this
+    },
+    orderBy (field, direction) {
+      if (docs === undefined) return makeQuery(undefined, name)
+      const sorted = [...docs].sort((x, y) => {
+        const a = x[field]
+        const b = y[field]
+        const cmp = a < b ? -1 : a > b ? 1 : 0
+        return direction === 'desc' ? -cmp : cmp
+      })
+      return makeQuery(sorted, name)
     },
     async get () {
       if (docs === undefined) throw notExists(name)
