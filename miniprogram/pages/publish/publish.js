@@ -343,9 +343,39 @@ Page({
     }
   },
 
-  onRecordStart () {
+  // 麦克风授权前置：未决定时弹授权框；曾拒绝过则引导去设置里手动开
+  // （recorderManager.start 在无授权时会静默失败，必须显式处理）
+  ensureRecordScope () {
+    return new Promise((resolve, reject) => {
+      wx.getSetting({
+        success: (res) => {
+          if (res.authSetting['scope.record'] === false) {
+            wx.showModal({
+              title: '需要麦克风权限',
+              content: '录音前请在设置中允许「麦克风」权限',
+              confirmText: '去设置',
+              success: (r) => {
+                if (r.confirm) wx.openSetting({})
+              }
+            })
+            reject(new Error('record scope denied'))
+            return
+          }
+          wx.authorize({ scope: 'scope.record', success: resolve, fail: reject })
+        },
+        fail: reject
+      })
+    })
+  },
+
+  async onRecordStart () {
     if (this.data.recording) return
     this.stopAudioPreview()
+    try {
+      await this.ensureRecordScope()
+    } catch (e) {
+      return // 已弹过引导/用户拒绝授权，静默返回
+    }
     this.ensureRecorder().start({
       duration: LIMITS.VIDEO_DURATION_MAX * 1000, // 到时自动停（onStop 统一收口）
       format: 'aac',
