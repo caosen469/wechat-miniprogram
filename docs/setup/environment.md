@@ -22,6 +22,18 @@
 5. **部署测试云函数**：编辑器中右键 `cloudfunctions/hello` → 「上传并部署：云端安装依赖」。
 6. **真机预览**：工具栏「预览」扫码 → 手机上看到 Hello World → 点「测试云函数连通」按钮，显示 `Hello World from cloud function（openid: …）` 即全链路通。
 
+## 云函数部署清单
+
+新增云函数后，在微信开发者工具中右键对应目录 → 「上传并部署：云端安装依赖」：
+
+| 函数 | 目录 | 用途 |
+|---|---|---|
+| `hello` | `cloudfunctions/hello` | 环境健康检查（阶段 0） |
+| `bootstrap` | `cloudfunctions/bootstrap` | 冷启动鉴权：openid → 成员身份；不在圈返回 `{me: null}`（T14） |
+| `createCircle` | `cloudfunctions/createCircle` | 建圈：创建者即圈主，生成 `circles`/`members` 文档（T14） |
+
+> 云函数本地单测：仓库根目录 `npm test`（jest，mock `wx-server-sdk`，不需真实环境）。
+
 ## 验收对照（issue #15）
 
 - [ ] 使用正式 AppID（非测试号）创建小程序项目

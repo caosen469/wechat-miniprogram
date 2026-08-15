@@ -1,0 +1,9 @@
+{
+  "name": "bootstrap",
+  "version": "1.0.0",
+  "description": "冷启动：openid → 成员身份与状态，返回 {me, circle, members, unreadCount}",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -1,7 +1,8 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/profile/profile"
+    "pages/profile/profile",
+    "pages/onboarding/onboarding"
   ],
   "window": {
     "navigationBarBackgroundColor": "#faf7f2",

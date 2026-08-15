@@ -1,0 +1,30 @@
+<view class="onboarding">
+  <view class="hero">
+    <view class="hero-title">家庭生活记录</view>
+    <view class="hero-sub">把一起去过的地方、吃过的店，攒成共同的回忆</view>
+  </view>
+
+  <view class="form">
+    <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+      <image wx:if="{{avatarUrl}}" class="avatar" src="{{avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="avatar avatar-placeholder">👤</view>
+      <view class="avatar-hint">点击选择头像</view>
+    </button>
+
+    <view class="field">
+      <view class="field-label">昵称</view>
+      <input
+        class="nickname-input"
+        type="nickname"
+        placeholder="点击填写昵称"
+        value="{{nickname}}"
+        bindinput="onNicknameInput"
+      />
+    </view>
+  </view>
+
+  <button class="create-btn" type="primary" bindtap="onCreateCircle" disabled="{{submitting}}">
+    创建家庭圈
+  </button>
+  <view class="join-hint">已有家庭圈？邀请码入圈即将开放</view>
+</view>

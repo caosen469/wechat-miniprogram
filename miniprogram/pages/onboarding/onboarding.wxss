@@ -1,0 +1,93 @@
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 64rpx;
+}
+
+.hero {
+  text-align: center;
+  margin-bottom: 96rpx;
+}
+
+.hero-title {
+  font-size: 44rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.hero-sub {
+  color: #999999;
+  font-size: 28rpx;
+}
+
+.form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 64rpx;
+}
+
+.avatar-btn {
+  background: transparent;
+  padding: 0;
+  margin: 0 0 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: inherit;
+}
+
+/* 去掉 button 默认边框（WXSS 不支持 & 嵌套，需平铺） */
+.avatar-btn::after {
+  border: none;
+}
+
+.avatar {
+  width: 144rpx;
+  height: 144rpx;
+  border-radius: 72rpx;
+}
+
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #eeeeee;
+  font-size: 64rpx;
+}
+
+.avatar-hint {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.field {
+  width: 100%;
+  margin-top: 24rpx;
+}
+
+.field-label {
+  font-size: 26rpx;
+  color: #666666;
+  margin-bottom: 12rpx;
+}
+
+.nickname-input {
+  background-color: #ffffff;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 30rpx;
+}
+
+.create-btn {
+  width: 100%;
+}
+
+.join-hint {
+  margin-top: 32rpx;
+  font-size: 24rpx;
+  color: #bbbbbb;
+}

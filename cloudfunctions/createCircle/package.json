@@ -1,0 +1,9 @@
+{
+  "name": "createCircle",
+  "version": "1.0.0",
+  "description": "建圈：全库仅一圈，创建者即圈主；入参 {nickname, avatarFileID}",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

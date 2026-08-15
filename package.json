@@ -1,0 +1,11 @@
+{
+  "name": "wechat-miniprogram",
+  "private": true,
+  "description": "家庭生活记录小程序（云函数单测跑在根目录，小程序端代码在 miniprogram/）",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^30.0.0"
+  }
+}

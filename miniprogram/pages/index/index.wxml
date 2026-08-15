@@ -1,9 +1,19 @@
 <view class="container">
-  <view class="title">Hello World 🏠</view>
-  <view class="subtitle">家庭生活记录小程序已就绪</view>
+  <view wx:if="{{checking}}" class="title">正在进入…</view>
 
-  <button class="test-btn" type="primary" bindtap="onTestCloud" disabled="{{testing}}">
-    测试云函数连通
-  </button>
-  <view wx:if="{{cloudResult}}" class="cloud-result">{{cloudResult}}</view>
+  <block wx:elif="{{checkFailed}}">
+    <view class="title">身份检查失败</view>
+    <view class="subtitle">请检查网络后重试</view>
+    <button class="test-btn" type="primary" bindtap="checkMembership">重试</button>
+  </block>
+
+  <block wx:else>
+    <view class="title">Hello World 🏠</view>
+    <view class="subtitle" wx:if="{{me}}">欢迎，{{me.nickname}}</view>
+
+    <button class="test-btn" type="primary" bindtap="onTestCloud" disabled="{{testing}}">
+      测试云函数连通
+    </button>
+    <view wx:if="{{cloudResult}}" class="cloud-result">{{cloudResult}}</view>
+  </block>
 </view>
