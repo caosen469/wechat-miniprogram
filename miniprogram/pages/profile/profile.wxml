@@ -1,4 +1,89 @@
-<view class="container">
-  <view class="title">我的</view>
-  <view class="subtitle">成员信息与设置（阶段 2 起实现）</view>
+<view class="profile">
+  <view wx:if="{{loading}}" class="placeholder">加载中…</view>
+
+  <block wx:elif="{{loadFailed}}">
+    <view class="placeholder">加载失败</view>
+    <button type="primary" bindtap="loadBootstrap">重试</button>
+  </block>
+
+  <block wx:else>
+    <!-- 我的资料 -->
+    <view class="card">
+      <view class="card-title">我的资料</view>
+
+      <view wx:if="{{!editing}}" class="me-row">
+        <image class="avatar" src="{{me.avatarUrl}}" mode="aspectFill" />
+        <view class="me-info">
+          <view class="me-nickname">{{me.nickname}}</view>
+          <view class="me-role">{{isOwner ? '圈主' : '成员'}}</view>
+        </view>
+        <view class="link-btn" bindtap="onStartEdit">编辑</view>
+      </view>
+
+      <view wx:else class="edit-form">
+        <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onEditChooseAvatar">
+          <image wx:if="{{editAvatarUrl}}" class="avatar" src="{{editAvatarUrl}}" mode="aspectFill" />
+          <image wx:else class="avatar" src="{{me.avatarUrl}}" mode="aspectFill" />
+          <view class="avatar-hint">点击更换头像</view>
+        </button>
+        <input
+          class="nickname-input"
+          type="nickname"
+          placeholder="填写新昵称"
+          value="{{editNickname}}"
+          bindinput="onEditNicknameInput"
+        />
+        <view class="edit-actions">
+          <button class="btn-sm" bindtap="onCancelEdit" disabled="{{savingProfile}}">取消</button>
+          <button class="btn-sm primary" type="primary" bindtap="onSaveProfile" disabled="{{savingProfile}}">保存</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 成员列表 -->
+    <view class="card">
+      <view class="card-title">家庭成员（{{members.length}}）</view>
+      <view wx:for="{{members}}" wx:key="_id" class="member-row">
+        <image class="avatar avatar-sm" src="{{item.avatarUrl}}" mode="aspectFill" />
+        <view class="me-info">
+          <view class="me-nickname {{item.status !== 'active' ? 'inactive' : ''}}">{{item.nickname}}</view>
+          <view class="me-role">{{item.roleLabel}}</view>
+        </view>
+        <view
+          wx:if="{{isOwner && item.status === 'active' && item.openid !== me.openid}}"
+          class="link-btn danger"
+          bindtap="onRemoveMember"
+          data-id="{{item._id}}"
+          data-name="{{item.nickname}}"
+        >移除</view>
+      </view>
+    </view>
+
+    <!-- 圈主专属：邀请码 -->
+    <view wx:if="{{isOwner}}" class="card">
+      <view class="card-title">邀请成员</view>
+
+      <block wx:if="{{!inviteCode}}">
+        <view class="card-desc">生成一个 24 小时内有效的邀请码，家人凭码入圈；一个码可多人使用</view>
+        <button type="primary" bindtap="onGenerateInviteCode" disabled="{{generating}}">
+          生成邀请码
+        </button>
+      </block>
+
+      <block wx:else>
+        <view class="invite-code">{{inviteCode.code}}</view>
+        <view class="card-desc">{{inviteCode.expiresText}}</view>
+        <view class="invite-actions">
+          <button class="btn-sm" bindtap="onCopyInviteCode">复制</button>
+          <button class="btn-sm danger" bindtap="onRevokeInviteCode">作废</button>
+        </view>
+      </block>
+    </view>
+
+    <!-- 退出家庭圈：圈主无此项（spec 6.6） -->
+    <view class="card">
+      <view wx:if="{{!isOwner}}" class="leave-btn" bindtap="onLeaveCircle">退出家庭圈</view>
+      <view wx:else class="owner-note">圈主不可退出家庭圈</view>
+    </view>
+  </block>
 </view>

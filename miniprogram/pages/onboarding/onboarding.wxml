@@ -4,7 +4,27 @@
     <view class="hero-sub">把一起去过的地方、吃过的店，攒成共同的回忆</view>
   </view>
 
+  <view class="mode-tabs">
+    <view class="mode-tab {{mode === 'join' ? 'active' : ''}}" bindtap="onSwitchMode" data-mode="join">
+      邀请码入圈
+    </view>
+    <view class="mode-tab {{mode === 'create' ? 'active' : ''}}" bindtap="onSwitchMode" data-mode="create">
+      创建家庭圈
+    </view>
+  </view>
+
   <view class="form">
+    <view wx:if="{{mode === 'join'}}" class="field">
+      <view class="field-label">邀请码</view>
+      <input
+        class="invite-input"
+        placeholder="输入圈主分享的 6 位邀请码"
+        maxlength="6"
+        value="{{inviteCode}}"
+        bindinput="onInviteCodeInput"
+      />
+    </view>
+
     <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
       <image wx:if="{{avatarUrl}}" class="avatar" src="{{avatarUrl}}" mode="aspectFill" />
       <view wx:else class="avatar avatar-placeholder">👤</view>
@@ -23,8 +43,23 @@
     </view>
   </view>
 
-  <button class="create-btn" type="primary" bindtap="onCreateCircle" disabled="{{submitting}}">
+  <button
+    wx:if="{{mode === 'create'}}"
+    class="create-btn"
+    type="primary"
+    bindtap="onCreateCircle"
+    disabled="{{submitting}}"
+  >
     创建家庭圈
   </button>
-  <view class="join-hint">已有家庭圈？邀请码入圈即将开放</view>
+  <button
+    wx:else
+    class="create-btn"
+    type="primary"
+    bindtap="onJoinCircle"
+    disabled="{{submitting}}"
+  >
+    加入家庭圈
+  </button>
+  <view wx:if="{{mode === 'create'}}" class="join-hint">还没有圈？先创建；家人随后凭邀请码加入</view>
 </view>
