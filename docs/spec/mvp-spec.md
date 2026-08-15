@@ -229,7 +229,7 @@ R.status == 'active' 且记录满足其一：
 | `listPlaces` | 成员 | `{}` | 地点卡片数组（名称/类型/cover/均分/次数/情绪档位分布） | active；聚合该地点全部**可见**记录 |
 | `getPlaceDetail` | 成员 | `{placeId}` | `{place, records[]}`（时间倒序） | active；可见性过滤 |
 | `publishRecord` | 成员 | `{placeId 或 newPlace{...}, media[], text, audio, rating, visibility, participantIds?, happenedAt}` | `{recordId}` | active；校验媒体数量/时长/字数/星级；`pair` 档固化 `circles.pairIds` 快照；新地点时按 poiId 查重归并；成功后触发通知 |
-| `listFeed` | 成员 | `{placeId?, before?}` | 记录数组（含作者/参与者昵称头像） | active；可见性过滤 |
+| `listFeed` | 成员 | `{placeId?, before?, after?, limit?}` | 记录数组（含作者/参与者昵称头像） | active；可见性过滤；`before` 按 happenedAt ≤ 游标（翻页）、`after` 按 createdAt > 游标（红点条展开最新未读用，与 `unreadCount` 同水位口径，T21） |
 | `getRecord` | 成员 | `{recordId}` | 记录详情 | active；可见者才返回 |
 | `updateRecord` | 成员 | `{recordId, ...可改字段}` | — | active；**能看见就能编辑**（可见性过滤） |
 | `deleteRecord` | 成员 | `{recordId}` | — | active；能看见就能删除；媒体文件一并删除 |

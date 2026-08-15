@@ -2,7 +2,7 @@
 // 按 happenedAt 时间倒序（补记排位正确，spec 4.5），同一 happenedAt 按
 // createdAt 决胜（T16 列表的发布序）；可见性过滤经公共 visibility.js
 // （spec 4.6 三档 + 4.2 退出成员记录不可见）；作者/参与者昵称头像与地点
-// 名称类型由服务端 join，前端不做二次请求。before 游标 + limit 分页。
+// 名称类型由服务端 join，前端不做二次请求。before/after 游标 + limit 分页。
 //
 // 家庭圈 4–6 人量级，取全量记录在函数内过滤后分页（spec 4.4 派生值同理：
 // 量级小，无需把可见性下推到查询条件）。
@@ -30,10 +30,12 @@ async function safeGet (query) {
   }
 }
 
-// before 游标：Date 或 ISO 字符串（callFunction 序列化后是字符串），非法值忽略
-function parseBefore (before) {
-  if (!before) return null
-  const date = before instanceof Date ? before : new Date(before)
+// 游标解析（Date 或 ISO 字符串——callFunction 序列化后是字符串），非法值忽略：
+//   before — happenedAt ≤ 游标（翻页，≤ 因补记只精确到分钟）
+//   after  — createdAt > 游标（红点条展开最新未读用，与 bootstrap.unreadCount 同水位语义）
+function parseCursor (value) {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
   return isNaN(date.getTime()) ? null : date
 }
 
@@ -67,14 +69,17 @@ exports.main = async (event) => {
   const recordsRes = await safeGet(db.collection('records').where(cond).limit(1000))
 
   // ---- 过滤 + 游标 + 排序 + 分页（在可见记录之上切片）----
-  const before = parseBefore(event.before)
+  const before = parseCursor(event.before)
+  const after = parseCursor(event.after)
   const limitRaw = Number(event.limit) || PAGE_DEFAULT
   const limit = Math.min(Math.max(Math.floor(limitRaw), 1), PAGE_MAX)
   const visible = recordsRes.data.filter(r =>
     isVisible(r, OPENID, activeOpenids) &&
-    // 游标用 ≤：补记只精确到分钟，同一分钟的记录用 < 会被永久跳过；
+    // before 游标用 ≤：补记只精确到分钟，同一分钟的记录用 < 会被永久跳过；
     // 代价是游标本身可能重复出现在下一页，由前端按 _id 去重
-    (!before || happenedTs(r) <= before.getTime())
+    (!before || happenedTs(r) <= before.getTime()) &&
+    // after 游标用 >（严格晚于）：与 bootstrap.unreadCount 的未读口径一致
+    (!after || new Date(r.createdAt).getTime() > after.getTime())
   ).sort(byTimeDesc)
 
   // ---- join：作者/参与者昵称头像（spec 5.1）+ 地点名称类型（简版列表展示用）----

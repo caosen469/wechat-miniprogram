@@ -39,11 +39,13 @@
 | `leaveCircle` | `cloudfunctions/leaveCircle` | 成员自退（圈主不可退）（T17） |
 | `updateProfile` | `cloudfunctions/updateProfile` | 改昵称/头像（T17） |
 | `setPartner` | `cloudfunctions/setPartner` | 圈主指定/更换另一半，只改 `circles.pairIds`（T18） |
-| `listFeed` | `cloudfunctions/listFeed` | 记录流水：可见性过滤 + happenedAt 倒序 + 服务端 join 昵称头像（T18） |
+| `listFeed` | `cloudfunctions/listFeed` | 记录流水：可见性过滤 + happenedAt 倒序 + 服务端 join 昵称头像（T18；T21 加 `after` 游标） |
+| `listPlaces` | `cloudfunctions/listPlaces` | 足迹列表聚合：均分/次数/情绪档位/封面拼图，基于可见记录现算（T19） |
 | `getRecord` | `cloudfunctions/getRecord` | 记录详情：可见者才返回，不可见/不存在统一 `NOT_VISIBLE`（T18） |
 | `getPlaceDetail` | `cloudfunctions/getPlaceDetail` | 地点详情：`{place, records[]}` 可见性过滤（T18） |
 | `updateRecord` | `cloudfunctions/updateRecord` | 编辑记录：能看见就能编辑，pair 档以改动时二人组重固化快照（T18） |
 | `deleteRecord` | `cloudfunctions/deleteRecord` | 删除记录：能看见就能删除，媒体文件一并从云存储删除（T18） |
+| `markRead` | `cloudfunctions/markRead` | 红点水位更新：调用者 `lastReadAt` 推进到当前时间（T21） |
 
 > 云函数本地单测：仓库根目录 `npm test`（jest，mock `wx-server-sdk`，不需真实环境）。
 

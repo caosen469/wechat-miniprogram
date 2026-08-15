@@ -3,11 +3,11 @@
 // 这条链路是所有业务云函数的第一步，后续函数照此成形。
 // 不在圈（无 active 成员记录）返回 { me: null }，前端据此进入 onboarding。
 const cloud = require('wx-server-sdk')
+const { isVisible } = require('./visibility')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const db = cloud.database()
-const _ = db.command
 
 // 全新环境下业务集合尚未创建，读失败按空处理（首次建圈时 createCircle 会补建集合）
 async function safeGet (query) {
@@ -37,24 +37,24 @@ exports.main = async () => {
   const allMembersRes = await safeGet(db.collection('members').limit(100))
   const members = allMembersRes.data
 
-  // 未读数：createdAt > 水位线 且对本人可见（spec 4.6 规则）且非本人所发（自己发的不给自己红点）。
+  // 未读数（spec 4.2）：createdAt > 水位线 且对本人可见（spec 4.6 公共过滤，
+  // 与 listFeed/listPlaces 同口径）且非本人所发（自己发的不给自己红点）。
   // 水位线：lastReadAt（首次 markRead 前）回退到 joinedAt，避免入圈即满屏红点。
+  // 家庭圈 4–6 人量级，全量拉取后函数内过滤（spec 4.4 派生值同理，无需下推查询）。
   const watermark = me.lastReadAt || me.joinedAt
   let unreadCount = 0
   if (watermark) {
-    const visible = _.or(
-      { visibility: 'family' },
-      _.and({ visibility: 'pair' }, { pairIds: OPENID }),
-      { visibility: 'private', authorId: OPENID }
-    )
-    try {
-      const res = await db.collection('records')
-        .where(_.and({ createdAt: _.gt(watermark) }, visible, { authorId: _.neq(OPENID) }))
-        .count()
-      unreadCount = res.total
-    } catch (err) {
-      // records 集合尚未创建（还没人发布过记录）时按 0 处理
-      unreadCount = 0
+    const watermarkTs = new Date(watermark).getTime()
+    if (!isNaN(watermarkTs)) {
+      const activeOpenids = new Set(
+        members.filter(m => m.status === 'active').map(m => m.openid)
+      )
+      const recordsRes = await safeGet(db.collection('records').limit(1000))
+      unreadCount = recordsRes.data.filter(r =>
+        isVisible(r, OPENID, activeOpenids) &&
+        r.authorId !== OPENID &&
+        new Date(r.createdAt).getTime() > watermarkTs
+      ).length
     }
   }
 

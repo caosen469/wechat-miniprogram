@@ -9,6 +9,7 @@
 // ---- 副本一致性锁定（T16）----
 
 const COPIES = {
+  bootstrap: require('../cloudfunctions/bootstrap/visibility'),
   listFeed: require('../cloudfunctions/listFeed/visibility'),
   listPlaces: require('../cloudfunctions/listPlaces/visibility'),
   getRecord: require('../cloudfunctions/getRecord/visibility'),

@@ -99,6 +99,32 @@ describe('listFeed（简版足迹流水）', () => {
     expect(asString.records.map(r => r._id)).toEqual(['r-old'])
   })
 
+  test('after 游标：只返回 createdAt 晚于 after 的记录（红点条展开未读用，ISO 字符串也接受）', async () => {
+    sdk.__reset(seed([
+      // 发布晚（未读）但到访早的补记：after 按 createdAt 过滤，排序仍按 happenedAt
+      record({ _id: 'r-backfill', createdAt: hoursAgo(1), happenedAt: hoursAgo(48), text: '补记' }),
+      record({ _id: 'r-read', createdAt: hoursAgo(72), happenedAt: hoursAgo(72) })
+    ]))
+    const asDate = await listFeed.main({ after: hoursAgo(24) })
+    expect(asDate.records.map(r => r._id)).toEqual(['r-backfill'])
+
+    sdk.__reset(seed([
+      record({ _id: 'r-backfill', createdAt: hoursAgo(1), happenedAt: hoursAgo(48), text: '补记' }),
+      record({ _id: 'r-read', createdAt: hoursAgo(72), happenedAt: hoursAgo(72) })
+    ]))
+    const asString = await listFeed.main({ after: hoursAgo(24).toISOString() })
+    expect(asString.records.map(r => r._id)).toEqual(['r-backfill'])
+  })
+
+  test('after 游标 + limit：未读超出单页上限时由前端提示余量', async () => {
+    const many = Array.from({ length: 5 }, (_, i) =>
+      record({ _id: `r-${i}`, createdAt: hoursAgo(i + 1) }))
+    sdk.__reset(seed(many))
+    const result = await listFeed.main({ after: hoursAgo(24).toISOString(), limit: 3 })
+    expect(result.records).toHaveLength(3)
+    expect(result.records.map(r => r._id)).toEqual(['r-0', 'r-1', 'r-2'])
+  })
+
   test('limit 截断（默认 20，上限 50）', async () => {
     const many = Array.from({ length: 25 }, (_, i) =>
       record({ _id: `r-${i}`, createdAt: hoursAgo(i + 1) }))
