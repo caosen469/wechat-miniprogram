@@ -21,6 +21,27 @@
   width: 100%;
 }
 
+/* 弱网队列状态条（spec 7.2） */
+.pending-bar {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  background-color: #f3f7ff;
+  border: 1rpx solid #d6e4ff;
+  border-radius: 12rpx;
+  padding: 14rpx 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.pending-icon {
+  font-size: 26rpx;
+}
+
+.pending-text {
+  font-size: 26rpx;
+  color: #4a6fa5;
+}
+
 /* 顶部段控「列表 | 地图」（spec 6.2） */
 .seg {
   display: flex;

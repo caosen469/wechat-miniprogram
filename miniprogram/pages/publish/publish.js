@@ -1,4 +1,4 @@
-// 发布页（spec 6.5 变体 C「拍摄优先」，T15 + T18 + T20）：
+// 发布页（spec 6.5 变体 C「拍摄优先」，T15 + T18 + T20，T22 接入弱网队列）：
 // 九宫格媒体打头 + ≤500 字吐槽 + 5 星点选（必填）+ 语音条内联
 // （wx.getRecorderManager 录 ≤60s，可试听/重录/删）
 // + 地点内联轻选三通道（POI 搜索 / 当前位置反查 / 手动新地点）
@@ -6,12 +6,15 @@
 // + 底栏发布 + 可见范围快捷入口（三选一弹层，防「仅我俩」手滑）。
 // 编辑模式（T20）：带 recordId 进入，getRecord 预填后走 updateRecord，
 // 地点只读不改（spec 5.1 updateRecord 可改字段不含 place）。
-// 草稿与弱网队列不做（T22/T23）：发布时直传云存储。
+// 弱网（T22）：媒体选中即 wx.saveFile 持久化（tempFilePath 关闭即失效，spec 7.1）；
+// 新建点「发布」入 uploadQueue 队列立即返回首页（联网自动补传，spec 7.2）；
+// 编辑模式保持直传（已在浏览记录，通常网络可用）。
 const { callApi } = require('../../services/api')
 const { mergeMedia, LIMITS } = require('../../services/mediaRules')
 const { tencentMapKey } = require('../../config/index')
 const { TYPE_OPTIONS, typeLabelOf } = require('../../services/placeTypes')
 const { gradeOf } = require('../../services/rating')
+const { enqueue, flush, rand, extOf } = require('../../services/uploadQueue')
 
 // 可见范围三档（spec 4.6；pair 需圈主已指定另一半，未指定时禁选）
 const VISIBILITY_OPTIONS = [
@@ -20,12 +23,19 @@ const VISIBILITY_OPTIONS = [
   { value: 'private', label: '仅自己', icon: '🔒', desc: '只有你自己可见' }
 ]
 
-const randId = () => Math.random().toString(36).slice(2, 10)
-
-// 临时文件扩展名 → 云存储路径扩展名（视频统一 mp4，图片统一 jpg）
-const extOf = item => (item.type === 'video' ? 'mp4' : 'jpg')
-
 const pad = n => String(n).padStart(2, '0')
+
+// 选中/录制即持久化（spec 7.1：tempFilePath 关闭即失效，必须转 savedFilePath）；
+// saveFile 失败（本地额度满等）回退 temp 路径——本次生命周期内仍可用
+function saveFileToLocal (tempFilePath) {
+  return new Promise(resolve => {
+    wx.saveFile({
+      tempFilePath,
+      success: r => resolve(r.savedFilePath),
+      fail: () => resolve('')
+    })
+  })
+}
 
 Page({
   data: {
@@ -256,11 +266,16 @@ Page({
         sourceType: ['album', 'camera'],
         sizeType: ['compressed'] // 起步压缩、够用即可（grilling 决议）
       })
-      const incoming = res.tempFiles.map(f => ({
-        path: f.tempFilePath,
-        type: f.fileType,
-        duration: f.fileType === 'video' ? f.duration : undefined
-      }))
+      // 选中即持久化（spec 7.1/7.2：草稿阶段只持久化不传，发布才入队）
+      const incoming = []
+      for (const f of res.tempFiles) {
+        const saved = await saveFileToLocal(f.tempFilePath)
+        incoming.push({
+          path: saved || f.tempFilePath,
+          type: f.fileType,
+          duration: f.fileType === 'video' ? f.duration : undefined
+        })
+      }
       const { list, dropped } = mergeMedia(this.data.media, incoming)
       this.setData({ media: list })
       // 超限即时提示并拦截（spec 6.5）：提示被拦了什么，已放行的照常并入
@@ -278,8 +293,13 @@ Page({
 
   onRemoveMedia (e) {
     const index = e.currentTarget.dataset.index
+    const removed = this.data.media[index]
     const media = this.data.media.filter((_, i) => i !== index)
     this.setData({ media })
+    // 本地已持久化的文件同步清理（T22：删媒体即删文件，不留孤儿）
+    if (removed && removed.path && !removed.fileID && removed.path.indexOf('cloud://') !== 0) {
+      wx.removeSavedFile({ filePath: removed.path, fail: () => {} })
+    }
   },
 
   onTextInput (e) {
@@ -313,15 +333,17 @@ Page({
       }, 1000)
     })
     // 手动停止与 60s 自动停止都走这里（duration 上限即 spec 的 ≤60s）
-    recorder.onStop((res) => {
+    recorder.onStop(async (res) => {
       this.clearRecordTimer()
       if (this.destroyed) return // onUnload 主动停录音：不再 setData
       this.setData({ recording: false })
       // res.duration 为毫秒；1 秒内手停时计时器还没走字，以系统时长为准
       const secs = Math.max(1, Math.round((res.duration || this.recordSecs * 1000) / 1000))
       if (res && res.tempFilePath) {
+        // 语音同样选中即持久化（T22：离线发布也要带上语音）
+        const saved = await saveFileToLocal(res.tempFilePath)
         this.setData({
-          audio: { path: res.tempFilePath, duration: Math.min(secs, LIMITS.VIDEO_DURATION_MAX) },
+          audio: { path: saved || res.tempFilePath, duration: Math.min(secs, LIMITS.VIDEO_DURATION_MAX) },
           audioPlaying: false
         })
       }
@@ -592,16 +614,17 @@ Page({
     return ts
   },
 
-  // 语音上传：新录的本地文件传云存储得 {fileID, duration}；
+  // 语音上传：新录的本地文件传云存储得 {fileID, duration}（成功即清本地文件）；
   // 编辑模式沿用的旧语音原样返回；无语音返回 null
   async uploadAudio (base) {
     const audio = this.data.audio
     if (!audio) return null
     if (audio.fileID && !audio.path) return audio // 未改动，保留
     const upload = await wx.cloud.uploadFile({
-      cloudPath: `records/${base}-voice-${randId()}.aac`,
+      cloudPath: `records/${base}-voice-${rand()}.aac`,
       filePath: audio.path
     })
+    wx.removeSavedFile({ filePath: audio.path, fail: () => {} })
     return { fileID: upload.fileID, duration: audio.duration }
   },
 
@@ -629,11 +652,13 @@ Page({
     }
 
     this.setData({ submitting: true })
-    wx.showLoading({ title: editing ? '保存中…' : '发布中…', mask: true })
+    if (editing) {
+      wx.showLoading({ title: '保存中…', mask: true })
+    }
     try {
-      // 媒体直传云存储拿 fileID（spec 2.2，不经云函数中转）；
-      // cloudPath 带时间戳+随机串保证唯一（幂等约定见 spec 7.2）；
-      // 编辑模式下已有 fileID 的条目不重传（仅保留/删除）
+      // 编辑模式：直传云存储拿 fileID（浏览场景通常网络可用，spec 7.2 队列只
+      // 管新建；cloudPath 带时间戳+随机串保证唯一，幂等约定见 spec 7.2）；
+      // 已有 fileID 的条目不重传（仅保留/删除）；上传成功即清本地文件
       const base = Date.now()
       const media = []
       for (let i = 0; i < this.data.media.length; i++) {
@@ -647,9 +672,10 @@ Page({
           continue
         }
         const upload = await wx.cloud.uploadFile({
-          cloudPath: `records/${base}-${i}-${randId()}.${extOf(item)}`,
+          cloudPath: `records/${base}-${i}-${rand()}.${extOf(item)}`,
           filePath: item.path
         })
+        wx.removeSavedFile({ filePath: item.path, fail: () => {} })
         media.push({
           fileID: upload.fileID,
           type: item.type,
@@ -683,20 +709,33 @@ Page({
         wx.hideLoading()
         wx.showToast({ title: '已保存', icon: 'success' })
       } else {
-        // place 以 newPlace 提交：同 poiId 的地点由服务端查重归并（spec 5.1）
+        // 新建：入弱网队列立即返回首页（spec 7.2：发布页点发布即返回，
+        // 联网自动补传、首页「N 条待同步」）；place 以 newPlace 提交，同 poiId
+        // 的地点由服务端查重归并（spec 5.1）
         const place = this.data.place
-        const result = await callApi('publishRecord', {
-          newPlace: {
-            poiId: place.poiId,
-            name: place.name,
-            type: place.type,
-            location: place.location
+        enqueue({
+          payload: {
+            newPlace: {
+              poiId: place.poiId,
+              name: place.name,
+              type: place.type,
+              location: place.location
+            },
+            text: this.data.text.trim(),
+            rating: this.data.rating,
+            visibility: this.data.visibility,
+            participantIds,
+            happenedAt: happenedAt !== undefined ? happenedAt : undefined
           },
-          ...fields
+          media: this.data.media.map(m => ({ path: m.path, type: m.type, duration: m.duration })),
+          audio: this.data.audio && !this.data.audio.fileID
+            ? { path: this.data.audio.path, duration: this.data.audio.duration }
+            : null
         })
-        wx.hideLoading()
-        wx.showToast({ title: '已发布', icon: 'success' })
-        return result
+        flush() // 有网立即开传；无网由 app.onShow / 网络恢复监听补传
+        wx.showToast({ title: '已加入待同步队列', icon: 'none' })
+        setTimeout(() => wx.navigateBack(), 400)
+        return
       }
       setTimeout(() => wx.navigateBack(), 600)
     } catch (err) {

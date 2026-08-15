@@ -10,6 +10,7 @@ const { callApi } = require('../../services/api')
 const { gradeOf, tierKeyOf, starsOf } = require('../../services/rating')
 const { typeLabelOf } = require('../../services/placeTypes')
 const { formatTime } = require('../../services/formatTime')
+const { onChange, pendingCount, list, discardFailed } = require('../../services/uploadQueue')
 
 // 地图兜底中心：所有地点都缺坐标时也不会崩（正常由 include-points 自适应视野）
 const DEFAULT_CENTER = { latitude: 39.908823, longitude: 116.39747 }
@@ -32,7 +33,20 @@ Page({
     unreadRecords: [],
     unreadMore: 0, // 未读数超出 listFeed 单页上限时被截掉的数量（条数诚实性）
     unreadLoading: false,
-    unreadError: ''
+    unreadError: '',
+    pendingCount: 0 // 弱网队列未同步数（spec 7.2：首页「N 条待同步」状态条）
+  },
+
+  onLoad () {
+    // 订阅弱网队列变更：补传完成/入队时状态条实时刷新（不依赖 onShow 轮询）
+    this.unsubQueue = onChange(count => this.setData({ pendingCount: count }))
+  },
+
+  onUnload () {
+    if (this.unsubQueue) {
+      this.unsubQueue()
+      this.unsubQueue = null
+    }
   },
 
   async onShow () {
@@ -44,7 +58,13 @@ Page({
       return
     }
     this.bootstrapped = true
+    this.syncPending()
     await this.checkMembership()
+  },
+
+  // 状态条计数与队列对账（每次进入首页读一次；队列变更由 onChange 实时推）
+  syncPending () {
+    this.setData({ pendingCount: pendingCount() })
   },
 
   async checkMembership () {
@@ -185,6 +205,28 @@ Page({
   // 右下角打卡按钮 → 发布页（spec 6.2）
   onTapPublish () {
     wx.navigateTo({ url: '/pages/publish/publish' })
+  },
+
+  // 弱网队列状态条（spec 7.2）：不弹错轰炸，点击后给说明；
+  // 终态失败的 job 提供「放弃」出口，避免状态条永久卡死
+  onTapPending () {
+    const jobs = list()
+    const pending = jobs.filter(j => j.status === 'pending').length
+    const failed = jobs.filter(j => j.status === 'failed')
+    const content = [
+      pending > 0 ? `${pending} 条正在等待联网，恢复后自动补传` : '',
+      ...failed.map(j => `发布失败：${j.error}`)
+    ].filter(Boolean).join('；') || '没有待同步的内容'
+    wx.showModal({
+      title: `${this.data.pendingCount} 条回忆待同步`,
+      content,
+      showCancel: failed.length > 0,
+      cancelText: '放弃',
+      confirmText: '知道了',
+      success: r => {
+        if (r.cancel && failed.length > 0) discardFailed()
+      }
+    })
   },
 
   // 红点条：展开/收起。展开时拉最新未读记录并 markRead 更新水位（红点消失，

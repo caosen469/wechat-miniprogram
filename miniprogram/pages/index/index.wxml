@@ -8,6 +8,13 @@
   </block>
 
   <block wx:else>
+    <!-- 弱网队列状态条（spec 7.2）：有未同步记录时显示，补传成功即消失；
+         点击弹说明，失败任务可放弃 -->
+    <view wx:if="{{pendingCount > 0}}" class="pending-bar" bindtap="onTapPending">
+      <text class="pending-icon">⏳</text>
+      <text class="pending-text">{{pendingCount}} 条待同步</text>
+    </view>
+
     <!-- 顶部段控「列表 | 地图」（spec 6.2）：同一份地点数据，两种视图 -->
     <view class="seg">
       <view class="seg-item {{viewMode === 'list' ? 'seg-on' : ''}}" data-mode="list" bindtap="onSwitchView">列表</view>
