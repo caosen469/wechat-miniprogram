@@ -18,6 +18,11 @@ async function safeGet (query) {
   }
 }
 
+function err (code, message) {
+  // 异常统一返回 {code, message}（spec 5.2），与 listFeed 等函数同一形态
+  return { code, message }
+}
+
 exports.main = async () => {
   const { OPENID } = cloud.getWXContext()
 
@@ -26,7 +31,7 @@ exports.main = async () => {
   )
   const me = memberRes.data[0]
   if (!me) {
-    return { code: 'NOT_IN_CIRCLE', message: '你还不在家庭圈中' }
+    return err('NOT_IN_CIRCLE', '你还不在家庭圈中')
   }
 
   // 水位更新为当前时间（云函数侧时钟，避免依赖设备时间）

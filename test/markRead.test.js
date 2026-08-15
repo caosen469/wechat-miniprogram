@@ -18,7 +18,6 @@ const seed = (over = {}) => ({
 
 describe('markRead（红点水位）', () => {
   test('不在圈（无该 openid 的 active 成员记录）：NOT_IN_CIRCLE', async () => {
-    sdk.__reset(seed())
     sdk.__reset({ ...seed(), openid: 'openid-x' })
     const result = await markRead.main()
     expect(result).toEqual({ code: 'NOT_IN_CIRCLE', message: expect.any(String) })

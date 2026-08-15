@@ -41,6 +41,7 @@
               <view class="unread-meta">{{item.authorName}} · {{item.timeText}}</view>
             </view>
           </view>
+          <view wx:if="{{unreadMore > 0}}" class="unread-tip">更早的还有 {{unreadMore}} 条未读</view>
         </view>
       </block>
     </view>
@@ -56,13 +57,13 @@
          marker id 为数字（placeId → 下标映射）；callout 用 cover-view slot 渲染，
          原生层置顶可点；include-points 让全部 marker 自适应视野 -->
     <map
-      wx:if="{{viewMode === 'map' && places.length > 0}}"
+      wx:if="{{viewMode === 'map' && markers.length > 0}}"
       class="map-view"
       longitude="{{mapCenter.longitude}}"
       latitude="{{mapCenter.latitude}}"
       scale="{{12}}"
       markers="{{markers}}"
-      include-points="{{markers}}"
+      include-points="{{mapPoints}}"
     >
       <cover-view
         wx:for="{{markers}}"
@@ -81,6 +82,9 @@
         </cover-view>
       </cover-view>
     </map>
+
+    <!-- 有地点但都缺坐标（理论上不会：打卡必选点）：地图无可展示，给一句提示 -->
+    <view wx:elif="{{viewMode === 'map' && places.length > 0}}" class="tip">地点暂无坐标，地图暂无可展示</view>
 
     <!-- 足迹列表：地点为一等公民（spec 6.2，T19） -->
     <view wx:if="{{viewMode === 'list' && !loadingPlaces && places.length > 0 && !placesError}}" class="places">
