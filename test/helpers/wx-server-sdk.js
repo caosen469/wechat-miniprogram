@@ -1,5 +1,6 @@
 // wx-server-sdk 的最小内存版 mock，只覆盖本项目云函数用到的能力：
-//   cloud.init / cloud.getWXContext / cloud.database / cloud.deleteFile
+//   cloud.init / cloud.getWXContext / cloud.database / cloud.deleteFile / cloud.callFunction
+//   cloud.openapi.subscribeMessage.send（T24 提醒推送断言用）
 //   db.collection(name).where(cond).get()/count()/update()、collection.add、collection.count、
 //   collection.doc(id).get()/update()/remove()、db.createCollection、where().orderBy().limit().get()
 //   db.command 的 gt/and/or/neq（返回不透明对象，where 匹配时跳过命令字段，
@@ -16,7 +17,11 @@ const state = {
   openid: 'openid-a',
   counts: {}, // name -> total，覆盖该集合 where().count() 的返回值
   seq: 0,
-  deletedFiles: [] // cloud.deleteFile 被调用的 fileID 累计（deleteRecord 测试断言用）
+  deletedFiles: [], // cloud.deleteFile 被调用的 fileID 累计（deleteRecord 测试断言用）
+  functions: {}, // name -> async (event) => result，callFunction 的被调函数表
+  calls: [], // callFunction 入参累计 {name, data}（publishRecord 触发 sendReminders 断言用）
+  sentMessages: [], // openapi.subscribeMessage.send 成功入参累计（sendReminders 测试断言用）
+  sendBehavior: null // fn(opts) -> throw|undefined，模拟 43101 等发送失败
 }
 
 function notExists (name) {
@@ -148,12 +153,38 @@ module.exports = {
     state.deletedFiles.push(...fileList)
     return { fileList: fileList.map(fileID => ({ fileID, status: 0 })) }
   },
-  __reset ({ collections = {}, openid = 'openid-a', counts = {} } = {}) {
+  // publishRecord 内部触发 sendReminders 用（spec 8.1）：查 functions 表分发；
+  // 未注册的函数按调用成功处理（推送缺席不影响发布主流程）
+  async callFunction ({ name, data }) {
+    state.calls.push({ name, data })
+    const fn = state.functions[name]
+    if (!fn) return { result: {} }
+    return { result: await fn(data) }
+  },
+  openapi: {
+    subscribeMessage: {
+      // sendReminders 推送用（spec 8.1）：默认记录入参并返回成功；
+      // sendBehavior 存在时完全接管（自行 push sentMessages / 抛 43101 模拟失败）
+      async send (options) {
+        if (typeof state.sendBehavior === 'function') {
+          state.sendBehavior(options)
+          return { errCode: 0 }
+        }
+        state.sentMessages.push(options)
+        return { errCode: 0 }
+      }
+    }
+  },
+  __reset ({ collections = {}, openid = 'openid-a', counts = {}, functions = {}, sendBehavior = null } = {}) {
     state.collections = collections
     state.openid = openid
     state.counts = counts
     state.seq = 0
     state.deletedFiles = []
+    state.functions = functions
+    state.calls = []
+    state.sentMessages = []
+    state.sendBehavior = sendBehavior
   },
   __state: state
 }

@@ -1,7 +1,10 @@
 // 设置页（tab 2「我的」，spec 6.6）：我的资料、成员列表与状态、
 // 圈主专属操作（邀请码/移除成员/指定另一半）、退出家庭圈（圈主无此项）。
+// T24：新回忆提醒常驻开关（spec 8.1：关 = 不再请求授权也不再发）。
 // 数据每次 onShow 调 bootstrap 拉最新（成员/状态常变）。
 const { callApi } = require('../../services/api')
+const { subscribeTemplateId } = require('../../config/index')
+const reminders = require('../../services/reminders')
 
 const randId = () => Math.random().toString(36).slice(2, 10)
 
@@ -19,6 +22,9 @@ Page({
     me: null,
     isOwner: false,
     members: [], // { _id, nickname, avatarUrl, roleLabel }
+    // 新回忆提醒（T24，spec 8.1）：开关镜像 members.remindersOff；pushReady = 模板已配置
+    reminderOn: true,
+    pushReady: !!subscribeTemplateId,
     // 编辑资料
     editing: false,
     editAvatarUrl: '',
@@ -65,6 +71,7 @@ Page({
       loading: false,
       me: result.me,
       isOwner: result.me.role === 'owner',
+      reminderOn: reminders.isOn(result.me),
       partnerNickname: partner ? partner.nickname : '',
       members: (result.members || []).map(m => ({
         _id: m._id,
@@ -131,6 +138,27 @@ Page({
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
     } finally {
       this.setData({ savingProfile: false })
+    }
+  },
+
+  // ---- 新回忆提醒开关（T24，spec 8.1：关 = 不再请求授权也不再发） ----
+
+  async onToggleReminders (e) {
+    const on = e.detail.value
+    // 先乐观落开关，失败再翻回来（setData 有值变化才会驱动 switch 回弹）
+    this.setData({ reminderOn: on })
+    // requestSubscribeMessage 必须在点击的同步回调里调（services/reminders.js 注释），
+    // 所以要在任何 await 之前请求授权，再去服务端落开关
+    if (on) reminders.requestAuth()
+    try {
+      await callApi('updateProfile', { remindersOn: on })
+      // 同步 globalData，避免发布页引导/红点续授权用到过期状态
+      const boot = getApp().globalData.bootstrap
+      if (boot && boot.me) boot.me.remindersOff = !on
+      wx.showToast({ title: on ? '已开启' : '已关闭', icon: 'none' })
+    } catch (err) {
+      this.setData({ reminderOn: !on })
+      wx.showToast({ title: err.message || '操作失败', icon: 'none' })
     }
   },
 

@@ -12,6 +12,7 @@ const { mergeMedia, LIMITS } = require('../../services/mediaRules')
 const { tencentMapKey } = require('../../config/index')
 const { TYPE_OPTIONS, typeLabelOf } = require('../../services/placeTypes')
 const { gradeOf } = require('../../services/rating')
+const reminders = require('../../services/reminders')
 
 // 可见范围三档（spec 4.6；pair 需圈主已指定另一半，未指定时禁选）
 const VISIBILITY_OPTIONS = [
@@ -65,7 +66,9 @@ Page({
     // ---- 编辑模式（T20）：详情页「···」→ 编辑 复用本页 ----
     editRecordId: '',
     editLoading: false,
-    editFailed: false
+    editFailed: false,
+    // ---- 发布成功后的提醒引导（T24，spec 8.1：动机最强时刻引导一次）----
+    reminderGuide: false
   },
 
   onLoad (options) {
@@ -701,6 +704,16 @@ Page({
         })
         wx.hideLoading()
         wx.showToast({ title: '已发布', icon: 'success' })
+        // submitting 保持 true 直到页面销毁：toast 与引导弹层期间的双重点击不再重复发布
+        // 发布成功 = 授权动机最强的时刻（spec 8.1）：引导一次开启提醒，
+        // 引导过/关了提醒/模板未过审（降级）则直接返回
+        const boot = getApp().globalData.bootstrap
+        if (reminders.shouldGuide(boot && boot.me)) {
+          reminders.markGuided()
+          this.setData({ reminderGuide: true })
+        } else {
+          setTimeout(() => wx.navigateBack(), 600)
+        }
         return result
       }
       setTimeout(() => wx.navigateBack(), 600)
@@ -709,5 +722,21 @@ Page({
       wx.showToast({ title: err.message || (this.data.editRecordId ? '保存失败，请重试' : '发布失败，请重试'), icon: 'none', duration: 2500 })
       this.setData({ submitting: false })
     }
+  },
+
+  // ---- 发布成功后的提醒引导（T24，spec 8.1：只此一次，引导勾选「总是保持以上选择」）----
+
+  onGuideEnable () {
+    // requestSubscribeMessage 必须在点击的同步回调里调（services/reminders.js 注释）
+    reminders.requestAuth().then(() => this.finishPublish())
+  },
+
+  onGuideSkip () {
+    this.finishPublish()
+  },
+
+  finishPublish () {
+    this.setData({ reminderGuide: false })
+    setTimeout(() => wx.navigateBack(), 300)
   }
 })

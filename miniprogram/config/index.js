@@ -3,7 +3,11 @@
 // 留空时 wx.cloud.init 走默认环境（账号下只有一个环境时可用）。
 // tencentMapKey：腾讯位置服务 WebServiceAPI key（发布页「当前位置一键打卡」逆地址反查
 // 最近 POI 用），在 lbs.qq.com 申请后填入；留空时该通道降级为提示改用其他通道。
+// subscribeTemplateId：「内容提醒」类订阅消息模板 id（T24，spec 8.1）。公共模板库审核
+// 过后填入，与 cloudfunctions/sendReminders/index.js 的 config.templateId 保持一致；
+// 留空 = 走预设降级路径（spec 10.3）：不请求授权、不发推送，只用站内红点提醒。
 module.exports = {
   env: '',
-  tencentMapKey: ''
+  tencentMapKey: '',
+  subscribeTemplateId: ''
 }

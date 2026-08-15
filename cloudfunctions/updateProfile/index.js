@@ -1,4 +1,6 @@
-// updateProfile —— 修改我的资料（spec 5.1）：active 成员可改昵称、头像，至少传一项。
+// updateProfile —— 修改我的资料（spec 5.1）：active 成员可改昵称、头像、提醒开关，至少传一项。
+// 提醒开关（T24，spec 8.1）：remindersOn=false 落 members.remindersOff=true，
+// 云端 sendReminders 与前端续授权都以此为准——关 = 不再请求授权也不再发。
 const cloud = require('wx-server-sdk')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
@@ -42,6 +44,12 @@ exports.main = async (event) => {
       return err('VALIDATION_FAILED', '头像不能为空')
     }
     data.avatarUrl = avatarFileID
+  }
+  if (event.remindersOn !== undefined) {
+    if (typeof event.remindersOn !== 'boolean') {
+      return err('VALIDATION_FAILED', '提醒开关参数无效')
+    }
+    data.remindersOff = !event.remindersOn
   }
   if (Object.keys(data).length === 0) {
     return err('VALIDATION_FAILED', '没有要修改的内容')

@@ -296,5 +296,26 @@ exports.main = async (event) => {
     })
   }
 
+  // ---- 触发提醒推送（T24，spec 8.1）：只负责派发，绝不阻塞、失败发布 ----
+  // sendReminders 会先等满聚合窗口（同一作者 1 分钟内连发只推最后一条）再发，
+  // 而 callFunction 的 promise 要等子函数跑完（≈1 分钟）才 resolve，
+  // 因此只等派发请求送出（上限 200ms，同区域内足够）即返回，子调用在后台继续。
+  // 「仅自己」档不推（spec 8.1），连调用都省掉。
+  if (visibility !== 'private') {
+    const sending = cloud.callFunction({
+      name: 'sendReminders',
+      data: { recordId: added._id }
+    }).catch(() => {}) // 推送挂了不影响发布结果（spec 8.2：推送是增强不是依赖）
+    let dispatchTimer
+    try {
+      await Promise.race([
+        sending,
+        new Promise(resolve => { dispatchTimer = setTimeout(resolve, 200) })
+      ])
+    } finally {
+      clearTimeout(dispatchTimer) // 输掉的一方不留悬挂定时器
+    }
+  }
+
   return { recordId: added._id, placeId: place._id }
 }

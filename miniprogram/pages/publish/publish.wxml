@@ -206,3 +206,15 @@
     </block>
   </view>
 </view>
+
+<!-- 发布成功后的提醒引导（T24，spec 8.1：引导一次，勾选「总是保持以上选择」） -->
+<view wx:if="{{reminderGuide}}" class="sheet-mask" bindtap="onGuideSkip">
+  <view class="sheet" catchtap="onSheetTap">
+    <view class="sheet-title">🔔 开启新回忆提醒</view>
+    <view class="sheet-sub">家人发布新回忆时，微信会第一时间提醒你。建议在弹窗里勾选「总是保持以上选择」，以后不用每次确认。</view>
+    <view class="guide-actions">
+      <button class="btn-plain" bindtap="onGuideSkip">暂不</button>
+      <button class="guide-btn" type="primary" bindtap="onGuideEnable">开启提醒</button>
+    </view>
+  </view>
+</view>

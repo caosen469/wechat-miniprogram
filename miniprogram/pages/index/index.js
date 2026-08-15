@@ -11,6 +11,7 @@ const { callApi } = require('../../services/api')
 const { gradeOf, tierKeyOf, starsOf } = require('../../services/rating')
 const { typeLabelOf } = require('../../services/placeTypes')
 const { formatTime } = require('../../services/formatTime')
+const reminders = require('../../services/reminders')
 
 // 红点条展开一次拉满 listFeed 单页上限；超出部分以「更早的还有 N 条」提示
 const UNREAD_PAGE = 50
@@ -184,6 +185,10 @@ Page({
   // 还有未读（含上次 markRead 失败保留的红点）就重新拉取——缓存的旧列表不能
   // 挡住新到的记录；已读过再展开只是回看，不重复请求
   async onTapUnread () {
+    // 自然点击点静默续授权（T24，spec 8.1）：红点条正是「看新回忆」的动机时刻；
+    // 已勾选「总是保持以上选择」后调用不再弹窗、白攒额度，关了提醒的人不再被请求。
+    // 必须在点击的同步回调里调（T9 调研），故放在本函数第一行、任何 await 之前
+    reminders.silentRenew(this.data.me)
     if (this.data.unreadOpen) {
       this.setData({ unreadOpen: false })
       return

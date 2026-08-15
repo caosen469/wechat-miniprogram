@@ -40,6 +40,16 @@
       </view>
     </view>
 
+    <!-- 新回忆提醒（T24，spec 8.1）：关 = 不再请求授权也不再发 -->
+    <view class="card">
+      <view class="card-title">新回忆提醒</view>
+      <view class="reminder-row">
+        <view class="reminder-desc">家人发布新回忆时，微信服务通知提醒你（首页红点不受影响）</view>
+        <switch checked="{{reminderOn}}" bindchange="onToggleReminders" />
+      </view>
+      <view wx:if="{{!pushReady}}" class="reminder-note">微信推送模板审核中，暂时只有首页红点提醒，过审后无需重新开启</view>
+    </view>
+
     <!-- 成员列表 -->
     <view class="card">
       <view class="card-title">家庭成员（{{members.length}}）</view>

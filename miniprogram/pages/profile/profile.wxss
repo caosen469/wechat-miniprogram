@@ -225,3 +225,24 @@
   font-size: 24rpx;
   color: #8c6239;
 }
+
+/* ---- 新回忆提醒开关（T24，spec 8.1） ---- */
+.reminder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.reminder-desc {
+  flex: 1;
+  font-size: 26rpx;
+  color: #666666;
+  line-height: 1.6;
+}
+
+.reminder-note {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #999999;
+}

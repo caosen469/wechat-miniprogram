@@ -1,0 +1,9 @@
+{
+  "name": "sendReminders",
+  "version": "1.0.0",
+  "description": "新记录提醒推送（内部函数，spec 8.1；由 publishRecord 触发）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

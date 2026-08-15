@@ -458,3 +458,21 @@
 .sheet-btn {
   width: 100%;
 }
+
+/* ---- 发布成功后的提醒引导（T24，spec 8.1） ---- */
+.guide-actions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.guide-actions button {
+  flex: 1;
+}
+.guide-actions .btn-plain {
+  background-color: #f4f4f2;
+  color: #666666;
+}
+
+.guide-actions .guide-btn {
+  background-color: #8c6239;
+}

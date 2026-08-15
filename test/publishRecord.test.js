@@ -387,6 +387,51 @@ describe('publishRecord（发布记录）', () => {
     })
   })
 
+  describe('提醒推送触发（T24，spec 8.1）', () => {
+    test('family 档发布成功后触发 sendReminders（传 recordId）', async () => {
+      sdk.__reset(seed())
+      sdk.__state.functions.sendReminders = async () => ({ sent: 0 })
+      needReset = false
+      await publishRecord.main({
+        media: mediaOk, rating: 4, newPlace: newPlace()
+      })
+      const call = sdk.__state.calls.find(c => c.name === 'sendReminders')
+      expect(call).toBeTruthy()
+      expect(call.data.recordId).toBe(sdk.__state.collections.records[0]._id)
+    })
+
+    test('pair 档发布成功后触发（模糊文案在 sendReminders 内拼装）', async () => {
+      sdk.__reset(seed())
+      sdk.__state.functions.sendReminders = async () => ({ sent: 0 })
+      needReset = false
+      await publishRecord.main({
+        media: mediaOk, rating: 4, newPlace: newPlace(), visibility: 'pair'
+      })
+      expect(sdk.__state.calls.some(c => c.name === 'sendReminders')).toBe(true)
+    })
+
+    test('private 档（仅自己可见）不触发推送', async () => {
+      sdk.__reset(seed())
+      sdk.__state.functions.sendReminders = async () => ({ sent: 0 })
+      needReset = false
+      await publishRecord.main({
+        media: mediaOk, rating: 4, newPlace: newPlace(), visibility: 'private'
+      })
+      expect(sdk.__state.calls.some(c => c.name === 'sendReminders')).toBe(false)
+    })
+
+    test('sendReminders 调用失败：静默，不影响发布结果（spec 8.2）', async () => {
+      sdk.__reset(seed())
+      sdk.__state.functions.sendReminders = async () => { throw new Error('push broken') }
+      needReset = false
+      const result = await publishRecord.main({
+        media: mediaOk, rating: 4, newPlace: newPlace()
+      })
+      expect(result.code).toBeUndefined()
+      expect(result.recordId).toBeTruthy()
+    })
+  })
+
   describe('语音（T20，spec 4.5 audio：0–1 段 ≤60s）', () => {
     test('带语音发布：audio 落库为 {fileID, duration}', async () => {
       const result = await publish({ audio: { fileID: 'cloud://voice.aac', duration: 32 } })
